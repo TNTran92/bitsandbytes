@@ -171,6 +171,7 @@ elseif(BUILD_MPS)
                 VERBATIM)
     add_custom_target(metallib DEPENDS "bitsandbytes/bitsandbytes.metallib")
 #elseif(BUILD_HIP)
+#enable_language(HIP) # This will fail if HIP is not found
 # Add HIP config here
 else()
     string(APPEND BNB_OUTPUT_NAME "_cpu")
@@ -208,6 +209,9 @@ if(BUILD_CUDA)
             CUDA_SEPARABLE_COMPILATION ON
     )
 endif()
+#if(BUILD_HIP)
+#target_include_directories
+#endif()
 if(BUILD_MPS)
     add_dependencies(bitsandbytes metallib)
     target_link_libraries(bitsandbytes objc "-framework Foundation" "-framework Metal" "-framework MetalPerformanceShaders" "-framework MetalPerformanceShadersGraph")
