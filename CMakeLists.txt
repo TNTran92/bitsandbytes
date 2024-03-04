@@ -49,6 +49,8 @@ elseif(${COMPUTE_BACKEND} STREQUAL "mps")
     endif()
     set(BUILD_CUDA OFF)
     set(BUILD_MPS ON)
+# Add COMPUTE_BACKEND HIP here    
+#elseif(${COMPUTE_BACKEND} STREQUAL "HIP")
 else()
     set(BUILD_CUDA OFF)
     set(BUILD_MPS OFF)
@@ -168,6 +170,8 @@ elseif(BUILD_MPS)
                 COMMENT "Compiling Metal kernels"
                 VERBATIM)
     add_custom_target(metallib DEPENDS "bitsandbytes/bitsandbytes.metallib")
+#elseif(BUILD_HIP)
+# Add HIP config here
 else()
     string(APPEND BNB_OUTPUT_NAME "_cpu")
     set(GPU_SOURCES)
