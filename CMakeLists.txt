@@ -12,8 +12,10 @@
 #                        Check your compute capability here: https://developer.nvidia.com/cuda-gpus
 #  - PTXAS_VERBOSE: Pass the `-v` option to the PTX Assembler
 cmake_minimum_required(VERSION 3.22.1)
+cmake_policy(VERSION 3.21.3...3.27)
 
-project(bitsandbytes LANGUAGES CXX)
+#project(bitsandbytes LANGUAGES CXX)
+project(bitsandbytes LANGUAGES HIP)
 
 # Define included source files
 set(CPP_FILES csrc/common.cpp csrc/cpu_ops.cpp csrc/pythonInterface.cpp)
@@ -23,8 +25,10 @@ set(METAL_FILES csrc/mps_kernels.metal)
 # C++ sources are always included
 list(APPEND SRC_FILES ${CPP_FILES})
 
-set(COMPUTE_BACKEND "cpu" CACHE STRING "The compute backend to use (cpu, cuda, mps)")
-set_property(CACHE COMPUTE_BACKEND PROPERTY STRINGS cpu cuda mps)
+#set(COMPUTE_BACKEND "cpu" CACHE STRING "The compute backend to use (cpu, cuda, mps)")
+set(COMPUTE_BACKEND "hip" CACHE STRING "The compute backend to use (cpu, cuda, mps, hip)")
+#set_property(CACHE COMPUTE_BACKEND PROPERTY STRINGS cpu cuda mps)
+set_property(CACHE COMPUTE_BACKEND PROPERTY STRINGS cpu cuda mps hip)
 option(PTXAS_VERBOSE "Pass through -v flag to PTX Assembler" OFF)
 
 if(APPLE)
@@ -48,12 +52,19 @@ elseif(${COMPUTE_BACKEND} STREQUAL "mps")
         message(FATAL_ERROR "MPS is only supported on macOS" )
     endif()
     set(BUILD_CUDA OFF)
-    set(BUILD_MPS ON)
-# Add COMPUTE_BACKEND HIP here    
-#elseif(${COMPUTE_BACKEND} STREQUAL "HIP")
+    set(BUILD_MPS ON) 
+elseif(${COMPUTE_BACKEND} STREQUAL "HIP")
+    if(APPLE)
+        message(FATAL_ERROR "HIP is not supported on macOS" )
+    endif()
+    option(NO_CUBLASLT "Disable CUBLAS" OFF)
+    set(BUILD_HIP ON)
+    set(BUILD_MPS OFF)
+    message(STATUS "NO_CUBLASLT := ${NO_CUBLASLT}")
 else()
     set(BUILD_CUDA OFF)
     set(BUILD_MPS OFF)
+    set(BUILD_HIP OFF)
 endif()
 
 
@@ -189,7 +200,7 @@ if(MSVC)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /arch:AVX2 /fp:fast")
 endif()
 
-set_source_files_properties(${CPP_FILES} PROPERTIES LANGUAGE CXX)
+set_source_files_properties(${CPP_FILES} PROPERTIES LANGUAGE HIP)
 add_library(bitsandbytes SHARED ${SRC_FILES})
 target_compile_features(bitsandbytes PUBLIC cxx_std_14)
 target_include_directories(bitsandbytes PUBLIC csrc include)
