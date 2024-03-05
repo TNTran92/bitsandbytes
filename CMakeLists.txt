@@ -17,6 +17,11 @@ cmake_policy(VERSION 3.21.3...3.27)
 #project(bitsandbytes LANGUAGES CXX)
 project(bitsandbytes LANGUAGES HIP)
 
+#define hip architecture
+set(CMAKE_HIP_ARCHITECTURE gfx1100)
+#set_property(TARGET tgt PROPERTY HIP_ARCHITECTURES gfx1100)
+
+
 # Define included source files
 set(CPP_FILES csrc/common.cpp csrc/cpu_ops.cpp csrc/pythonInterface.cpp)
 set(CUDA_FILES csrc/ops.cu csrc/kernels.cu)
@@ -26,65 +31,45 @@ set(METAL_FILES csrc/mps_kernels.metal)
 list(APPEND SRC_FILES ${CPP_FILES})
 
 #set(COMPUTE_BACKEND "cpu" CACHE STRING "The compute backend to use (cpu, cuda, mps)")
-set(COMPUTE_BACKEND "hip" CACHE STRING "The compute backend to use (cpu, cuda, mps, hip)")
+set(COMPUTE_BACKEND "hip" CACHE STRING "The compute backend to use (cpu, hip)")
 #set_property(CACHE COMPUTE_BACKEND PROPERTY STRINGS cpu cuda mps)
-set_property(CACHE COMPUTE_BACKEND PROPERTY STRINGS cpu cuda mps hip)
+set_property(CACHE COMPUTE_BACKEND PROPERTY STRINGS cpu hip)
 option(PTXAS_VERBOSE "Pass through -v flag to PTX Assembler" OFF)
-
-if(APPLE)
-  set(CMAKE_OSX_DEPLOYMENT_TARGET 13.1)
-endif()
 
 set(BNB_OUTPUT_NAME "bitsandbytes")
 
 message(STATUS "Configuring ${PROJECT_NAME} (Backend: ${COMPUTE_BACKEND})")
 
-if(${COMPUTE_BACKEND} STREQUAL "cuda")
-    if(APPLE)
-        message(FATAL_ERROR "CUDA is not supported on macOS" )
-    endif()
-    option(NO_CUBLASLT "Disable CUBLAS" OFF)
-    set(BUILD_CUDA ON)
-    set(BUILD_MPS OFF)
-    message(STATUS "NO_CUBLASLT := ${NO_CUBLASLT}")
-elseif(${COMPUTE_BACKEND} STREQUAL "mps")
-    if(NOT APPLE)
-        message(FATAL_ERROR "MPS is only supported on macOS" )
-    endif()
-    set(BUILD_CUDA OFF)
-    set(BUILD_MPS ON) 
-elseif(${COMPUTE_BACKEND} STREQUAL "HIP")
+if(${COMPUTE_BACKEND} STREQUAL "hip")
     if(APPLE)
         message(FATAL_ERROR "HIP is not supported on macOS" )
     endif()
     option(NO_CUBLASLT "Disable CUBLAS" OFF)
     set(BUILD_HIP ON)
-    set(BUILD_MPS OFF)
     message(STATUS "NO_CUBLASLT := ${NO_CUBLASLT}")
 else()
-    set(BUILD_CUDA OFF)
-    set(BUILD_MPS OFF)
     set(BUILD_HIP OFF)
 endif()
 
 
-if(BUILD_CUDA)
-    enable_language(CUDA) # This will fail if CUDA is not found
-    find_package(CUDAToolkit REQUIRED)
+if(BUILD_HIP)
+    enable_language(HIP) # This will fail if CUDA is not found
+    #find_package(CUDAToolkit REQUIRED)
 
     # Convert the CUDA version from X.Y.z to XY. There's probably a shorter way of doing this
-    string(REGEX MATCH "^[0-9]+.[0-9]+" _CUDA_VERSION_FIRST_TWO "${CMAKE_CUDA_COMPILER_VERSION}")
-    string(REPLACE "." "" CUDA_VERSION_SHORT "${_CUDA_VERSION_FIRST_TWO}")
+    #string(REGEX MATCH "^[0-9]+.[0-9]+" _CUDA_VERSION_FIRST_TWO "${CMAKE_CUDA_COMPILER_VERSION}")
+    #string(REPLACE "." "" CUDA_VERSION_SHORT "${_CUDA_VERSION_FIRST_TWO}")
 
     # Expose a cache variable that the user can set to ensure the correct version of CUDA is found
-    set(CUDA_VERSION "${CUDA_VERSION_SHORT}" CACHE STRING "Expected CUDA Version Shortcode")
+    #set(CUDA_VERSION "${CUDA_VERSION_SHORT}" CACHE STRING "Expected CUDA Version Shortcode")
+    set(ROCM_VERSION "6.0.2")
 
-    message(STATUS "CUDA Version: ${CUDA_VERSION_SHORT} (${CMAKE_CUDA_COMPILER_VERSION})")
-    message(STATUS "CUDA Compiler: ${CMAKE_CUDA_COMPILER}")
+    #message(STATUS "HIP Version: ${HIP_VERSION_SHORT} (${CMAKE_CUDA_COMPILER_VERSION})")
+    message(STATUS "HIP Compiler: ${CMAKE_HIP_COMPILER}")
 
     # It should match the discovered version
-    if(NOT CUDA_VERSION STREQUAL "${CUDA_VERSION_SHORT}")
-        message(FATAL_ERROR "You've specified CUDA version ${CUDA_VERSION} however the CUDA compiler found is ${CUDA_VERSION_SHORT}."
+    if(NOT ROCM_VERSION STREQUAL "${CUDA_VERSION_SHORT}")
+        message(ROCM_VERSION "You've specified CUDA version ${CUDA_VERSION} however the CUDA compiler found is ${CUDA_VERSION_SHORT}."
             " Ensure the desired CUDA compiler is the first one available on your PATH."
         )
     endif()
