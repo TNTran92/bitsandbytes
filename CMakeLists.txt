@@ -14,13 +14,8 @@
 cmake_minimum_required(VERSION 3.22.1)
 cmake_policy(VERSION 3.21.3...3.27)
 
-#project(bitsandbytes LANGUAGES CXX)
-project(bitsandbytes LANGUAGES HIP)
-
-#define hip architecture
-set(CMAKE_HIP_ARCHITECTURE gfx1100)
-#set_property(TARGET tgt PROPERTY HIP_ARCHITECTURES gfx1100)
-
+project(bitsandbytes LANGUAGES CXX)
+#project(bitsandbytes LANGUAGES HIP)
 
 # Define included source files
 set(CPP_FILES csrc/common.cpp csrc/cpu_ops.cpp csrc/pythonInterface.cpp)
@@ -29,6 +24,12 @@ set(MPS_FILES csrc/mps_ops.mm)
 set(METAL_FILES csrc/mps_kernels.metal)
 # C++ sources are always included
 list(APPEND SRC_FILES ${CPP_FILES})
+
+#compiler list()
+set(CMAKE_C_COMPILER /opt/rocm/bin/amdclang)
+set(CMAKE_CXX_COMPILER /opt/rocm/bin/amdclang++)
+set(CMAKE_HIP_COMPILER /opt/rocm/bin/amdclang++)
+set(HIP_INCLUDE_DIRECTORIES /opt/rocm-6.0.2/include/)
 
 #set(COMPUTE_BACKEND "cpu" CACHE STRING "The compute backend to use (cpu, cuda, mps)")
 set(COMPUTE_BACKEND "hip" CACHE STRING "The compute backend to use (cpu, hip)")
@@ -41,9 +42,6 @@ set(BNB_OUTPUT_NAME "bitsandbytes")
 message(STATUS "Configuring ${PROJECT_NAME} (Backend: ${COMPUTE_BACKEND})")
 
 if(${COMPUTE_BACKEND} STREQUAL "hip")
-    if(APPLE)
-        message(FATAL_ERROR "HIP is not supported on macOS" )
-    endif()
     option(NO_CUBLASLT "Disable CUBLAS" OFF)
     set(BUILD_HIP ON)
     message(STATUS "NO_CUBLASLT := ${NO_CUBLASLT}")
@@ -63,6 +61,10 @@ if(BUILD_HIP)
     # Expose a cache variable that the user can set to ensure the correct version of CUDA is found
     #set(CUDA_VERSION "${CUDA_VERSION_SHORT}" CACHE STRING "Expected CUDA Version Shortcode")
     set(ROCM_VERSION "6.0.2")
+    set(CUDA_VERSION_SHORT "602")
+    #gpu hip will run on
+    set(CMAKE_HIP_ARCHITECTURE gfx1100)
+    #set_property(TARGET tgt PROPERTY HIP_ARCHITECTURES gfx1100)
 
     #message(STATUS "HIP Version: ${HIP_VERSION_SHORT} (${CMAKE_CUDA_COMPILER_VERSION})")
     message(STATUS "HIP Compiler: ${CMAKE_HIP_COMPILER}")
@@ -73,102 +75,101 @@ if(BUILD_HIP)
             " Ensure the desired CUDA compiler is the first one available on your PATH."
         )
     endif()
+    
 
-    if(CMAKE_CUDA_COMPILER_VERSION VERSION_LESS "11.0")
-        message(FATAL_ERROR "CUDA Version < 11 is not supported")
-    elseif(CMAKE_CUDA_COMPILER_VERSION VERSION_GREATER_EQUAL "13.0")
-        message(FATAL_ERROR "CUDA Version > 12 is not supported")
-    endif()
+    #if(CMAKE_CUDA_COMPILER_VERSION VERSION_LESS "11.0")
+    #    message(FATAL_ERROR "CUDA Version < 11 is not supported")
+    #elseif(CMAKE_CUDA_COMPILER_VERSION VERSION_GREATER_EQUAL "13.0")
+    #    message(FATAL_ERROR "CUDA Version > 12 is not supported")
+    #endif()
 
     # CMake < 3.23.0 does not define CMAKE_CUDA_ARCHITECTURES_ALL.
-    if(CMAKE_VERSION VERSION_LESS "3.23.0")
-        message(STATUS "CMake < 3.23.0; determining CUDA architectures supported...")
+    #if(CMAKE_VERSION VERSION_LESS "3.23.0")
+    #    message(STATUS "CMake < 3.23.0; determining CUDA architectures supported...")
 
-        # 11.x and 12.x both support these at a minimum.
-        set(CMAKE_CUDA_ARCHITECTURES_ALL 50 52 53 60 61 62 70 72 75 80)
-        set(CMAKE_CUDA_ARCHITECTURES_ALL_MAJOR 50 60 70 80)
+    #    # 11.x and 12.x both support these at a minimum.
+    #    set(CMAKE_CUDA_ARCHITECTURES_ALL 50 52 53 60 61 62 70 72 75 80)
+    #    set(CMAKE_CUDA_ARCHITECTURES_ALL_MAJOR 50 60 70 80)
 
-        # CUDA 11.1 adds Ampere support for GA102-GA107.
-        if (CMAKE_CUDA_COMPILER_VERSION VERSION_GREATER_EQUAL "11.1")
-            list(APPEND CMAKE_CUDA_ARCHITECTURES_ALL 86)
-        endif()
+    #    # CUDA 11.1 adds Ampere support for GA102-GA107.
+    #    if (CMAKE_CUDA_COMPILER_VERSION VERSION_GREATER_EQUAL "11.1")
+    #        list(APPEND CMAKE_CUDA_ARCHITECTURES_ALL 86)
+    #    endif()
 
-        # CUDA 11.4 adds Ampere support for GA10B.
-        if (CMAKE_CUDA_COMPILER_VERSION VERSION_GREATER_EQUAL "11.4")
-            list(APPEND CMAKE_CUDA_ARCHITECTURES_ALL 87)
-        endif()
+    #    # CUDA 11.4 adds Ampere support for GA10B.
+    #    if (CMAKE_CUDA_COMPILER_VERSION VERSION_GREATER_EQUAL "11.4")
+    #        list(APPEND CMAKE_CUDA_ARCHITECTURES_ALL 87)
+    #    endif()
 
-        # CUDA 11.8 adds support for Ada and Hopper.
-        if (CMAKE_CUDA_COMPILER_VERSION VERSION_GREATER_EQUAL "11.8")
-            list(APPEND CMAKE_CUDA_ARCHITECTURES_ALL 89 90)
-            list(APPEND CMAKE_CUDA_ARCHITECTURES_ALL_MAJOR 90)
-        endif()
-    endif()
+    #    # CUDA 11.8 adds support for Ada and Hopper.
+    #    if (CMAKE_CUDA_COMPILER_VERSION VERSION_GREATER_EQUAL "11.8")
+    #        list(APPEND CMAKE_CUDA_ARCHITECTURES_ALL 89 90)
+    #        list(APPEND CMAKE_CUDA_ARCHITECTURES_ALL_MAJOR 90)
+    #    endif()
+    #endif()
 
-    string(APPEND CMAKE_CUDA_FLAGS " --use_fast_math")
-    if(PTXAS_VERBOSE)
-        # Verbose? Outputs register usage information, and other things...
-        string(APPEND CMAKE_CUDA_FLAGS " -Xptxas=-v")
-    endif()
+    #string(APPEND CMAKE_CUDA_FLAGS " --use_fast_math")
+    #if(PTXAS_VERBOSE)
+    #    # Verbose? Outputs register usage information, and other things...
+    #    string(APPEND CMAKE_CUDA_FLAGS " -Xptxas=-v")
+    #endif()
 
-    foreach(capability ${CMAKE_CUDA_ARCHITECTURES_ALL})
-        # Most of the items here are like: `xx-real`, so we just extract the `xx` portion
-        string(REGEX MATCH "[0-9]+" capability_id "${capability}")
-        if(capability_id GREATER 0)
-            list(APPEND POSSIBLE_CAPABILITIES ${capability_id})
-        endif()
-    endforeach()
+    #foreach(capability ${CMAKE_CUDA_ARCHITECTURES_ALL})
+    #    # Most of the items here are like: `xx-real`, so we just extract the `xx` portion
+    #    string(REGEX MATCH "[0-9]+" capability_id "${capability}")
+    #    if(capability_id GREATER 0)
+    #        list(APPEND POSSIBLE_CAPABILITIES ${capability_id})
+    #    endif()
+    #endforeach()
 
     # This can be changed via -D argument to CMake
     # By default all possible capabilities are compiled
-    set(COMPUTE_CAPABILITY "${POSSIBLE_CAPABILITIES}" CACHE STRING "Compute Capabilities Targeted")
+    #set(COMPUTE_CAPABILITY "${POSSIBLE_CAPABILITIES}" CACHE STRING "Compute Capabilities Targeted")
 
-    message(STATUS "CUDA Capabilities Available: ${POSSIBLE_CAPABILITIES}")
-    message(STATUS "CUDA Capabilities  Selected: ${COMPUTE_CAPABILITY}")
+    #message(STATUS "CUDA Capabilities Available: ${POSSIBLE_CAPABILITIES}")
+    #message(STATUS "CUDA Capabilities  Selected: ${COMPUTE_CAPABILITY}")
+    message(STATUS "Currently Compiling with ROCM")
 
     # Use the "real" option to build native cubin for all selections.
     # Ensure we build the PTX for the latest version.
     # This behavior of adding a PTX (virtual) target for the highest architecture
     # is similar to how the "all" and "all-major" options would behave in CMake >= 3.23.
     # TODO: Consider bumping CMake requirement and using CMAKE_CUDA_ARCHITECTURES=[all | native] by default
-    list(REMOVE_DUPLICATES COMPUTE_CAPABILITY)
-    list(SORT COMPUTE_CAPABILITY COMPARE NATURAL)
-    list(POP_BACK COMPUTE_CAPABILITY _LATEST_CAPABILITY)
-    list(TRANSFORM COMPUTE_CAPABILITY APPEND "-real" OUTPUT_VARIABLE CMAKE_CUDA_ARCHITECTURES)
-    list(APPEND CMAKE_CUDA_ARCHITECTURES ${_LATEST_CAPABILITY})
+    #list(REMOVE_DUPLICATES COMPUTE_CAPABILITY)
+    #list(SORT COMPUTE_CAPABILITY COMPARE NATURAL)
+    #list(POP_BACK COMPUTE_CAPABILITY _LATEST_CAPABILITY)
+    #list(TRANSFORM COMPUTE_CAPABILITY APPEND "-real" OUTPUT_VARIABLE CMAKE_CUDA_ARCHITECTURES)
+    #list(APPEND CMAKE_CUDA_ARCHITECTURES ${_LATEST_CAPABILITY})
 
-    message(STATUS "CUDA Targets: ${CMAKE_CUDA_ARCHITECTURES}")
-    message(STATUS "CUDA NVCC Flags: ${CMAKE_CUDA_FLAGS}")
+    message(STATUS "HIP Targets: ${CMAKE_HIP_ARCHITECTURES}")
+    message(STATUS "HIP-Clang (nvcc-equivalent) Flags: ${CMAKE_HIP_FLAGS}")
 
     list(APPEND SRC_FILES ${CUDA_FILES})
 
-    string(APPEND BNB_OUTPUT_NAME "_cuda${CUDA_VERSION_SHORT}")
+    string(APPEND BNB_OUTPUT_NAME "_rocm${CUDA_VERSION_SHORT}")
     if(NO_CUBLASLT)
         string(APPEND BNB_OUTPUT_NAME "_nocublaslt")
     endif()
-    add_compile_definitions(BUILD_CUDA)
-elseif(BUILD_MPS)
-    if(NOT APPLE)
-        message(FATAL_ERROR "MPS is only supported on macOS" )
-    endif()
-
-    enable_language(OBJCXX)
-
-    list(APPEND SRC_FILES ${MPS_FILES})
-
-    string(APPEND BNB_OUTPUT_NAME "_mps")
-    add_compile_definitions(BUILD_MPS)
-    file(MAKE_DIRECTORY "build")
-    add_custom_command(OUTPUT "bitsandbytes/bitsandbytes.metallib"
-                COMMAND xcrun metal -c -o "build/bitsandbytes.air" ${METAL_FILES}
-                COMMAND xcrun metallib "build/bitsandbytes.air" -o "bitsandbytes/bitsandbytes.metallib"
-                DEPENDS "${METAL_FILES}"
-                COMMENT "Compiling Metal kernels"
-                VERBATIM)
-    add_custom_target(metallib DEPENDS "bitsandbytes/bitsandbytes.metallib")
-#elseif(BUILD_HIP)
-#enable_language(HIP) # This will fail if HIP is not found
-# Add HIP config here
+    add_compile_definitions(BUILD_HIP)
+#elseif(BUILD_MPS)
+#    if(NOT APPLE)
+#        message(FATAL_ERROR "MPS is only supported on macOS" )
+#    endif()
+#
+#    enable_language(OBJCXX)
+#
+#    list(APPEND SRC_FILES ${MPS_FILES})
+#
+#    string(APPEND BNB_OUTPUT_NAME "_mps")
+#    add_compile_definitions(BUILD_MPS)
+#    file(MAKE_DIRECTORY "build")
+#    add_custom_command(OUTPUT "bitsandbytes/bitsandbytes.metallib"
+#                COMMAND xcrun metal -c -o "build/bitsandbytes.air" ${METAL_FILES}
+#                COMMAND xcrun metallib "build/bitsandbytes.air" -o "bitsandbytes/bitsandbytes.metallib"
+#                DEPENDS "${METAL_FILES}"
+#                COMMENT "Compiling Metal kernels"
+#                VERBATIM)
+#    add_custom_target(metallib DEPENDS "bitsandbytes/bitsandbytes.metallib")
 else()
     string(APPEND BNB_OUTPUT_NAME "_cpu")
     set(GPU_SOURCES)
@@ -185,29 +186,42 @@ if(MSVC)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /arch:AVX2 /fp:fast")
 endif()
 
+#because source don't have .hip in their extension
+#set_source_files_properties(${CPP_FILES} PROPERTIES LANGUAGE HIP)
 set_source_files_properties(${CPP_FILES} PROPERTIES LANGUAGE HIP)
 add_library(bitsandbytes SHARED ${SRC_FILES})
 target_compile_features(bitsandbytes PUBLIC cxx_std_14)
 target_include_directories(bitsandbytes PUBLIC csrc include)
 
 
-if(BUILD_CUDA)
-    target_include_directories(bitsandbytes PUBLIC ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
-    target_link_libraries(bitsandbytes PUBLIC CUDA::cudart CUDA::cublas CUDA::cusparse)
+#if(BUILD_CUDA)
+#    target_include_directories(bitsandbytes PUBLIC ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
+#    target_link_libraries(bitsandbytes PUBLIC CUDA::cudart CUDA::cublas CUDA::cusparse)
+#    if(NO_CUBLASLT)
+#        target_compile_definitions(bitsandbytes PUBLIC NO_CUBLASLT)
+#    else()
+#        target_link_libraries(bitsandbytes PUBLIC CUDA::cublasLt)
+#    endif()
+#
+#    set_target_properties(bitsandbytes
+#        PROPERTIES
+#            CUDA_SEPARABLE_COMPILATION ON
+#    )
+#endif()
+
+
+if(BUILD_HIP)
+    target_include_directories(bitsandbytes PUBLIC ${HIP_INCLUDE_DIRECTORIES})
+    target_link_libraries(bitsandbytes PUBLIC CUDA::cudart hip::hipblas hip::hipsparse)
     if(NO_CUBLASLT)
         target_compile_definitions(bitsandbytes PUBLIC NO_CUBLASLT)
     else()
-        target_link_libraries(bitsandbytes PUBLIC CUDA::cublasLt)
+        target_link_libraries(bitsandbytes PUBLIC hip::hipblaslt)
     endif()
 
-    set_target_properties(bitsandbytes
-        PROPERTIES
-            CUDA_SEPARABLE_COMPILATION ON
-    )
+    #set_target_properties(bitsandbytes PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 endif()
-#if(BUILD_HIP)
-#target_include_directories
-#endif()
+
 if(BUILD_MPS)
     add_dependencies(bitsandbytes metallib)
     target_link_libraries(bitsandbytes objc "-framework Foundation" "-framework Metal" "-framework MetalPerformanceShaders" "-framework MetalPerformanceShadersGraph")
