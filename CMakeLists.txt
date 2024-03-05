@@ -23,7 +23,7 @@ set(METAL_FILES csrc/mps_kernels.metal)
 # C++ sources are always included
 list(APPEND SRC_FILES ${CPP_FILES})
 
-set(COMPUTE_BACKEND "cpu" CACHE STRING "The compute backend to use (cpu, cuda, mps)")
+set(COMPUTE_BACKEND "cuda" CACHE STRING "The compute backend to use (cpu, cuda, mps)")
 set_property(CACHE COMPUTE_BACKEND PROPERTY STRINGS cpu cuda mps)
 option(PTXAS_VERBOSE "Pass through -v flag to PTX Assembler" OFF)
 
@@ -36,6 +36,7 @@ set(BNB_OUTPUT_NAME "bitsandbytes")
 message(STATUS "Configuring ${PROJECT_NAME} (Backend: ${COMPUTE_BACKEND})")
 
 if(${COMPUTE_BACKEND} STREQUAL "cuda")
+    set(CMAKE_CUDA_COMPILER /usr/local/cuda-12.3/bin/nvcc)
     if(APPLE)
         message(FATAL_ERROR "CUDA is not supported on macOS" )
     endif()
@@ -57,6 +58,7 @@ endif()
 
 if(BUILD_CUDA)
     enable_language(CUDA) # This will fail if CUDA is not found
+    
     find_package(CUDAToolkit REQUIRED)
 
     # Convert the CUDA version from X.Y.z to XY. There's probably a shorter way of doing this
@@ -85,7 +87,6 @@ if(BUILD_CUDA)
     # CMake < 3.23.0 does not define CMAKE_CUDA_ARCHITECTURES_ALL.
     if(CMAKE_VERSION VERSION_LESS "3.23.0")
         message(STATUS "CMake < 3.23.0; determining CUDA architectures supported...")
-
         # 11.x and 12.x both support these at a minimum.
         set(CMAKE_CUDA_ARCHITECTURES_ALL 50 52 53 60 61 62 70 72 75 80)
         set(CMAKE_CUDA_ARCHITECTURES_ALL_MAJOR 50 60 70 80)
