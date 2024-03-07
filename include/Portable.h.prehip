@@ -5,7 +5,7 @@
 #include <sstream>
 
 #if defined(__aarch64__)
-#ifdef __HIPCC__
+#ifdef __CUDACC__
 #undef USE_NEON // Doesn't work with nvcc, undefined symbols
 #else
 #include <arm_neon.h>
