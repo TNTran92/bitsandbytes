@@ -5,6 +5,10 @@
 #ifndef common
 #define common
 
+#ifdef __HIP_PLATFORM_AMD__
+// Compiled with HIP-Clang
+#endif
+
 using namespace BinSearch;
 
 #define BLOCK_SIZE 16384

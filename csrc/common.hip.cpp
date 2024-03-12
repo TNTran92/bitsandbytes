@@ -3,6 +3,9 @@
 #include <common.hip.h>
 #include <float.h>
 
+#define  __HIP_PLATFORM_AMD__ 
+
+
 void quantize_block(const quantize_block_args& args) {
     // 1. find absmax in block
     // 2. divide input value by absmax to normalize into [-1.0, 1.0]
