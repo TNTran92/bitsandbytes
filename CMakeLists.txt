@@ -26,7 +26,8 @@ endif()
 # Define included source files
 set(CPP_FILES csrc/common.hip.cpp csrc/cpu_ops.hip.cpp csrc/pythonInterface.cpp)
 #set(CUDA_FILES csrc/ops.cu csrc/kernels.cu)
-set(CUDA_FILES csrc/ops.hip.cpp csrc/kernels.hip.cpp)
+set(CUDA_FILES csrc/ops.cpp csrc/kernels.hip.cpp)
+#set(CUDA_FILES obsolete/ops.cu obsolete/kernels.cu)
 set(MPS_FILES csrc/mps_ops.mm)
 set(METAL_FILES csrc/mps_kernels.metal)
 # C++ sources are always included
@@ -54,9 +55,12 @@ else()
 endif()
 
 find_package(rocThrust REQUIRED)
-find_package(MIOpen REQUIRED)
-#find_package(hipblas REQUIRED)
+find_package(hipblas REQUIRED)
+find_package(hipSPARSE REQUIRED)
+find_package(rocRAND REQUIRED)
 #find_package(hipblaslt REQUIRED)
+#find_package(MIOpen REQUIRED)
+
 
 # Search for rocm in common locations
 list(APPEND CMAKE_PREFIX_PATH /opt/rocm/hip /opt/rocm-6.0.2 /opt/rocm)
@@ -243,7 +247,7 @@ add_library(bitsandbytes SHARED ${SRC_FILES})
 target_include_directories(bitsandbytes PRIVATE ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/include /opt/rocm-6.0.2/include/hipblas /opt/rocm-6.0.2/include/hipblaslt /opt/rocm-6.0.2/include/hipsparse /opt/rocm-6.0.2/include/hipcub /opt/rocm-6.0.2/include/rocwmma)
 target_compile_features(bitsandbytes PUBLIC cxx_std_14)
 target_include_directories(bitsandbytes PUBLIC csrc include)
-target_link_libraries(bitsandbytes PUBLIC hip::device)
+target_link_libraries(bitsandbytes PUBLIC hip::device roc::hipblas roc::rocrand roc::hipsparse)
 
 
 if(BUILD_CUDA)
