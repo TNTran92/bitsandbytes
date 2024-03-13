@@ -255,7 +255,7 @@ void gemmex(Context *context, bool transposeA, bool transposeB, int m, int n, in
 					m, n,	k,
 					alpha, A, HIP_R_8I, lda, B, HIP_R_8I, ldb, beta,
 					C, HIP_R_32I, ldc,
-          HIP_R_32I, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
+          HIP_R_32I, HIPBLAS_GEMM_DEFAULT);
 
     if (status != HIPBLAS_STATUS_SUCCESS)
     {
@@ -383,13 +383,13 @@ template <typename T, int SRC, int TARGET, bool transpose, int DTYPE> void trans
 
   if(DTYPE == 8)
   {
-    checkCublasStatus(cublasLtMatrixLayoutCreate(&A_desc, HIP_R_8I, dim1, dim2, ldA));
-    checkCublasStatus(cublasLtMatrixLayoutCreate(&out_desc, HIP_R_8I, dim1, dim2, ldOut));
+    checkCublasStatus(hipblasLtMatrixLayoutCreate(&A_desc, HIP_R_8I, dim1, dim2, ldA));
+    checkCublasStatus(hipblasLtMatrixLayoutCreate(&out_desc, HIP_R_8I, dim1, dim2, ldOut));
   }
   else if(DTYPE == 32)
   {
-    checkCublasStatus(cublasLtMatrixLayoutCreate(&A_desc, HIP_R_32I, dim1, dim2, ldA));
-    checkCublasStatus(cublasLtMatrixLayoutCreate(&out_desc, HIP_R_32I, dim1, dim2, ldOut));
+    checkCublasStatus(hipblasLtMatrixLayoutCreate(&A_desc, HIP_R_32I, dim1, dim2, ldA));
+    checkCublasStatus(hipblasLtMatrixLayoutCreate(&out_desc, HIP_R_32I, dim1, dim2, ldOut));
   }
   else
   {
@@ -434,8 +434,8 @@ template <int FORMATB, int DTYPE_OUT, int SCALE_ROWS> int igemmlt(cublasLtHandle
     cublasLtOrder_t col_turing = CUBLASLT_ORDER_COL4_4R2_8C;
     cublasLtOrder_t col_ampere = CUBLASLT_ORDER_COL32_2R_4R4;
 
-    has_error |= checkCublasStatus(cublasLtMatrixLayoutCreate(&Adesc, HIP_R_8I, m, k, lda));
-    has_error |= checkCublasStatus(cublasLtMatrixLayoutCreate(&Bdesc, HIP_R_8I, n, k, ldb));
+    has_error |= checkCublasStatus(hipblasLtMatrixLayoutCreate(&Adesc, HIP_R_8I, m, k, lda));
+    has_error |= checkCublasStatus(hipblasLtMatrixLayoutCreate(&Bdesc, HIP_R_8I, n, k, ldb));
 
     has_error |= checkCublasStatus(cublasLtMatrixLayoutSetAttribute(Adesc, CUBLASLT_MATRIX_LAYOUT_ORDER, &col32, sizeof(col32)));
     if(FORMATB == COL_TURING)
@@ -447,7 +447,7 @@ template <int FORMATB, int DTYPE_OUT, int SCALE_ROWS> int igemmlt(cublasLtHandle
     {
       has_error |= checkCublasStatus(cublasLtMatmulDescCreate(&matmulDesc, HIPBLAS_COMPUTE_32I, HIP_R_32I));
       has_error |= checkCublasStatus(cublasLtMatmulDescSetAttribute(matmulDesc, CUBLASLT_MATMUL_DESC_TRANSB, &opT, sizeof(opT)));
-      has_error |= checkCublasStatus(cublasLtMatrixLayoutCreate(&Cdesc, HIP_R_32I, m, n, ldc));
+      has_error |= checkCublasStatus(hipblasLtMatrixLayoutCreate(&Cdesc, HIP_R_32I, m, n, ldc));
       has_error |= checkCublasStatus(cublasLtMatrixLayoutSetAttribute(Cdesc, CUBLASLT_MATRIX_LAYOUT_ORDER, &col32, sizeof(col32)));
       int alpha = 1, beta = 0;
       has_error |= checkCublasStatus(cublasLtMatmul(ltHandle, matmulDesc,&alpha, A, Adesc, B, Bdesc, &beta, (int32_t*)C, Cdesc, (int32_t*)C, Cdesc, NULL, NULL, 0, 0));
@@ -456,7 +456,7 @@ template <int FORMATB, int DTYPE_OUT, int SCALE_ROWS> int igemmlt(cublasLtHandle
     {
       has_error |= checkCublasStatus(cublasLtMatmulDescCreate(&matmulDesc, HIPBLAS_COMPUTE_32I, HIP_R_32F));
       has_error |= checkCublasStatus(cublasLtMatmulDescSetAttribute(matmulDesc, CUBLASLT_MATMUL_DESC_TRANSB, &opT, sizeof(opT)));
-      has_error |= checkCublasStatus(cublasLtMatrixLayoutCreate(&Cdesc, HIP_R_8I, m, n, ldc));
+      has_error |= checkCublasStatus(hipblasLtMatrixLayoutCreate(&Cdesc, HIP_R_8I, m, n, ldc));
       has_error |= checkCublasStatus(cublasLtMatrixLayoutSetAttribute(Cdesc, CUBLASLT_MATRIX_LAYOUT_ORDER, &col32, sizeof(col32)));
       if(!SCALE_ROWS)
       {

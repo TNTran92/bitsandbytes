@@ -55,6 +55,8 @@ endif()
 
 find_package(rocThrust REQUIRED)
 find_package(MIOpen REQUIRED)
+#find_package(hipblas REQUIRED)
+#find_package(hipblaslt REQUIRED)
 
 # Search for rocm in common locations
 list(APPEND CMAKE_PREFIX_PATH /opt/rocm/hip /opt/rocm-6.0.2 /opt/rocm)
