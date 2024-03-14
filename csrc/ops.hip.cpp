@@ -23,7 +23,7 @@ void histogramScatterAdd2D(float* histogram, int *index1, int *index2, float *sr
   int threads = 512;
   int num_blocks = n/threads;
   num_blocks = n % threads == 0 ? num_blocks : num_blocks + 1;
-  kHistogramScatterAdd2D<<<num_blocks, 512>>>(histogram, index1, index2, src, maxidx1, n);
+  kHistogramScatterAdd2D<<<dim3(num_blocks), dim3(512), 0, 0>>>(histogram, index1, index2, src, maxidx1, n);
   CUDA_CHECK_RETURN(hipPeekAtLastError());
 }
 
@@ -32,7 +32,7 @@ template <typename T> void estimateQuantiles(T *A, float *code, float offset, in
   int num_blocks = n/4096;
   num_blocks = n % 4096 == 0 ? num_blocks : num_blocks + 1;
 	CUDA_CHECK_RETURN(hipMemset(code, 0, 256*sizeof(float)));
-  kEstimateQuantiles<T><<<num_blocks, 512>>>(A, code, offset, std::numeric_limits<T>::max(), n);
+  kEstimateQuantiles<T><<<dim3(num_blocks), dim3(512), 0, 0>>>(A, code, offset, std::numeric_limits<T>::max(), n);
   CUDA_CHECK_RETURN(hipPeekAtLastError());
 }
 
@@ -40,7 +40,7 @@ void quantize(float *code, float *A, unsigned char *out, int n)
 {
   int num_blocks = n/1024;
   num_blocks = n % 1024 == 0 ? num_blocks : num_blocks + 1;
-  kQuantize<<<num_blocks, 1024>>>(code, A, out, n);
+  kQuantize<<<dim3(num_blocks), dim3(1024), 0, 0>>>(code, A, out, n);
   CUDA_CHECK_RETURN(hipPeekAtLastError());
 }
 
@@ -48,7 +48,7 @@ void dequantize(float *code, unsigned char *A, float *out, int n)
 {
   int num_blocks = n/1024;
   num_blocks = n % 1024 == 0 ? num_blocks : num_blocks + 1;
-  kDequantize<<<num_blocks, 1024>>>(code, A, out, n);
+  kDequantize<<<dim3(num_blocks), dim3(1024), 0, 0>>>(code, A, out, n);
   CUDA_CHECK_RETURN(hipPeekAtLastError());
 }
 
@@ -58,19 +58,19 @@ template <typename T, int STOCHASTIC, int DATA_TYPE> void quantizeBlockwise(floa
   num_blocks = n % blocksize == 0 ? num_blocks : num_blocks + 1;
 
   if(blocksize == 4096)
-    kQuantizeBlockwise<T, 4096, 4, STOCHASTIC, 0><<<num_blocks, 1024>>>(code, A, absmax, out, rand, rand_offset, n);
+    kQuantizeBlockwise<T, 4096, 4, STOCHASTIC, 0><<<dim3(num_blocks), dim3(1024), 0, 0>>>(code, A, absmax, out, rand, rand_offset, n);
   else if(blocksize == 2048)
-    kQuantizeBlockwise<T, 2048, 4, 0, DATA_TYPE><<<num_blocks, 512>>>(code, A, absmax, out, rand, rand_offset, n);
+    kQuantizeBlockwise<T, 2048, 4, 0, DATA_TYPE><<<dim3(num_blocks), dim3(512), 0, 0>>>(code, A, absmax, out, rand, rand_offset, n);
   else if(blocksize == 1024)
-    kQuantizeBlockwise<T, 1024, 4, 0, DATA_TYPE><<<num_blocks, 256>>>(code, A, absmax, out, rand, rand_offset, n);
+    kQuantizeBlockwise<T, 1024, 4, 0, DATA_TYPE><<<dim3(num_blocks), dim3(256), 0, 0>>>(code, A, absmax, out, rand, rand_offset, n);
   else if(blocksize == 512)
-    kQuantizeBlockwise<T, 512, 2, 0, DATA_TYPE><<<num_blocks, 256>>>(code, A, absmax, out, rand, rand_offset, n);
+    kQuantizeBlockwise<T, 512, 2, 0, DATA_TYPE><<<dim3(num_blocks), dim3(256), 0, 0>>>(code, A, absmax, out, rand, rand_offset, n);
   else if(blocksize == 256)
-    kQuantizeBlockwise<T, 256, 2, 0, DATA_TYPE><<<num_blocks, 128>>>(code, A, absmax, out, rand, rand_offset, n);
+    kQuantizeBlockwise<T, 256, 2, 0, DATA_TYPE><<<dim3(num_blocks), dim3(128), 0, 0>>>(code, A, absmax, out, rand, rand_offset, n);
   else if(blocksize == 128)
-    kQuantizeBlockwise<T, 128, 2, 0, DATA_TYPE><<<num_blocks, 64>>>(code, A, absmax, out, rand, rand_offset, n);
+    kQuantizeBlockwise<T, 128, 2, 0, DATA_TYPE><<<dim3(num_blocks), dim3(64), 0, 0>>>(code, A, absmax, out, rand, rand_offset, n);
   else if(blocksize == 64)
-    kQuantizeBlockwise<T, 64, 2, 0, DATA_TYPE><<<num_blocks, 32>>>(code, A, absmax, out, rand, rand_offset, n);
+    kQuantizeBlockwise<T, 64, 2, 0, DATA_TYPE><<<dim3(num_blocks), dim3(32), 0, 0>>>(code, A, absmax, out, rand, rand_offset, n);
 
 
   CUDA_CHECK_RETURN(hipPeekAtLastError());
@@ -83,9 +83,9 @@ template<typename T, int DATA_TYPE> void dequantizeBlockwise(float *code, unsign
   int tile_size = (DATA_TYPE > 0) ? 1024 : 512;
 
   if(DATA_TYPE > 0)
-    kDequantizeBlockwise<T, 512, 64, 8, DATA_TYPE><<<(n+tile_size-1)/tile_size, 64>>>(code, A, absmax, out, blocksize/2, n);
+    kDequantizeBlockwise<T, 512, 64, 8, DATA_TYPE><<<dim3((n+tile_size-1)/tile_size), dim3(64), 0, 0>>>(code, A, absmax, out, blocksize/2, n);
   else
-    kDequantizeBlockwise<T, 512, 64, 8, DATA_TYPE><<<(n+tile_size-1)/tile_size, 64>>>(code, A, absmax, out, blocksize, n);
+    kDequantizeBlockwise<T, 512, 64, 8, DATA_TYPE><<<dim3((n+tile_size-1)/tile_size), dim3(64), 0, 0>>>(code, A, absmax, out, blocksize, n);
 
   CUDA_CHECK_RETURN(hipPeekAtLastError());
 }
@@ -112,10 +112,10 @@ template<typename T, int OPTIMIZER> void optimizer32bit(T* g, T* p,
       if(max_unorm > 0.0f)
 			{
 				CUDA_CHECK_RETURN(hipMemset(unorm, 0, 1*sizeof(float)));
-        kPreconditionOptimizer32bit2State<T, OPTIMIZER, 4096, 8><<<num_blocks, 512>>>(g, p, state1, state2, unorm, beta1, beta2, eps, weight_decay, step, lr, gnorm_scale, n);
+        kPreconditionOptimizer32bit2State<T, OPTIMIZER, 4096, 8><<<dim3(num_blocks), dim3(512), 0, 0>>>(g, p, state1, state2, unorm, beta1, beta2, eps, weight_decay, step, lr, gnorm_scale, n);
         CUDA_CHECK_RETURN(hipPeekAtLastError());
       }
-			kOptimizer32bit2State<T, OPTIMIZER><<<num_blocks, 1024>>>(g, p, state1, state2, unorm, max_unorm, param_norm, beta1, beta2, eps, weight_decay, step, lr, gnorm_scale, skip_zeros, n);
+			kOptimizer32bit2State<T, OPTIMIZER><<<dnum_blocks, 1024>>>(g, p, state1, state2, unorm, max_unorm, param_norm, beta1, beta2, eps, weight_decay, step, lr, gnorm_scale, skip_zeros, n);
       CUDA_CHECK_RETURN(hipPeekAtLastError());
 			break;
 		case MOMENTUM:
