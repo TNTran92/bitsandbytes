@@ -115,7 +115,7 @@ template<typename T, int OPTIMIZER> void optimizer32bit(T* g, T* p,
         kPreconditionOptimizer32bit2State<T, OPTIMIZER, 4096, 8><<<dim3(num_blocks), dim3(512), 0, 0>>>(g, p, state1, state2, unorm, beta1, beta2, eps, weight_decay, step, lr, gnorm_scale, n);
         CUDA_CHECK_RETURN(hipPeekAtLastError());
       }
-			kOptimizer32bit2State<T, OPTIMIZER><<<dnum_blocks, 1024>>>(g, p, state1, state2, unorm, max_unorm, param_norm, beta1, beta2, eps, weight_decay, step, lr, gnorm_scale, skip_zeros, n);
+			kOptimizer32bit2State<T, OPTIMIZER><<<dim3(num_blocks), dim3(1024), 0, 0>>>(g, p, state1, state2, unorm, max_unorm, param_norm, beta1, beta2, eps, weight_decay, step, lr, gnorm_scale, skip_zeros, n);
       CUDA_CHECK_RETURN(hipPeekAtLastError());
 			break;
 		case MOMENTUM:
