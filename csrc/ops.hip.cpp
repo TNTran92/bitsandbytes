@@ -6,7 +6,7 @@
 #include "ops.hip.h"
 #include "kernels.hip.h"
 #include <hipcub/device/device_scan.hpp>
-#include <rocblas.h>
+#include <hipblas.h>
 #include <limits>
 #include <BinSearch.h>
 #include <cassert>
