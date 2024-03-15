@@ -6,6 +6,7 @@
 #include "ops.hip.h"
 #include "kernels.hip.h"
 #include <hipcub/device/device_scan.hpp>
+#include <rocblas.h>
 #include <limits>
 #include <BinSearch.h>
 #include <cassert>
@@ -124,22 +125,22 @@ template<typename T, int OPTIMIZER> void optimizer32bit(T* g, T* p,
       if(max_unorm > 0.0f)
 			{
 				CUDA_CHECK_RETURN(hipMemset(unorm, 0, 1*sizeof(float)));
-				kPreconditionOptimizer32bit1State<T, OPTIMIZER, 4096, 8><<<num_blocks, 512>>>(g, p, state1, unorm, beta1, beta2, eps, weight_decay, step, lr, gnorm_scale, n);
+				kPreconditionOptimizer32bit1State<T, OPTIMIZER, 4096, 8><<<dim3(num_blocks), dim3(512), 0, 0>>>(g, p, state1, unorm, beta1, beta2, eps, weight_decay, step, lr, gnorm_scale, n);
         CUDA_CHECK_RETURN(hipPeekAtLastError());
 			}
 
-			kOptimizer32bit1State<T, OPTIMIZER><<<num_blocks, 1024>>>(g, p, state1, unorm, max_unorm, param_norm, beta1, beta2, eps, weight_decay, step, lr, gnorm_scale, skip_zeros, n);
+			kOptimizer32bit1State<T, OPTIMIZER><<<dim3(num_blocks), dim3(1024), 0, 0>>>(g, p, state1, unorm, max_unorm, param_norm, beta1, beta2, eps, weight_decay, step, lr, gnorm_scale, skip_zeros, n);
       CUDA_CHECK_RETURN(hipPeekAtLastError());
 			break;
     case LION:
       // in lion, the momentum update after the parameter update
-      kOptimizer32bit1State<T, OPTIMIZER><<<num_blocks, 1024>>>(g, p, state1, unorm, max_unorm, param_norm, beta1, beta2, eps, weight_decay, step, lr, gnorm_scale, skip_zeros, n);
+      kOptimizer32bit1State<T, OPTIMIZER><<<dim3(num_blocks), dim3(1024), 0, 0>>>(g, p, state1, unorm, max_unorm, param_norm, beta1, beta2, eps, weight_decay, step, lr, gnorm_scale, skip_zeros, n);
       CUDA_CHECK_RETURN(hipPeekAtLastError());
 
       if(max_unorm > 0.0f)
       {
         CUDA_CHECK_RETURN(hipMemset(unorm, 0, 1*sizeof(float)));
-        kPreconditionOptimizer32bit1State<T, OPTIMIZER, 4096, 8><<<num_blocks, 512>>>(g, p, state1, unorm, beta1, beta2, eps, weight_decay, step, lr, gnorm_scale, n);
+        kPreconditionOptimizer32bit1State<T, OPTIMIZER, 4096, 8><<<dim3(num_blocks), dim3(512), 0, 0>>>(g, p, state1, unorm, beta1, beta2, eps, weight_decay, step, lr, gnorm_scale, n);
         CUDA_CHECK_RETURN(hipPeekAtLastError());
       }
       break;
@@ -166,9 +167,9 @@ template<typename T, int OPTIMIZER> void optimizerStatic8bit(T* p, T* g,
 		case ADAM:
 			CUDA_CHECK_RETURN(hipMemset(new_max1, 0, 1*sizeof(float)));
 			CUDA_CHECK_RETURN(hipMemset(new_max2, 0, 1*sizeof(float)));
-			kPreconditionOptimizerStatic8bit2State<T, OPTIMIZER><<<num_blocks, 256>>>(p, g, state1, state2, unorm, beta1, beta2, eps, step, quantiles1, quantiles2, max1, max2, new_max1, new_max2, gnorm_scale, n);
+			kPreconditionOptimizerStatic8bit2State<T, OPTIMIZER><<<dim3(num_blocks), dim3(256), 0, 0>>>(p, g, state1, state2, unorm, beta1, beta2, eps, step, quantiles1, quantiles2, max1, max2, new_max1, new_max2, gnorm_scale, n);
 			CUDA_CHECK_RETURN(hipPeekAtLastError());
-			kOptimizerStatic8bit2State<T, OPTIMIZER><<<num_blocks, 1024>>>(p, g, state1, state2, unorm, max_unorm, param_norm, beta1, beta2, eps, step, lr,
+			kOptimizerStatic8bit2State<T, OPTIMIZER><<<dim3(num_blocks), dim3(1024), 0, 0>>>(p, g, state1, state2, unorm, max_unorm, param_norm, beta1, beta2, eps, step, lr,
 																														quantiles1, quantiles2, max1, max2, new_max1, new_max2, weight_decay, gnorm_scale, n);
 			CUDA_CHECK_RETURN(hipPeekAtLastError());
 		break;
@@ -176,20 +177,20 @@ template<typename T, int OPTIMIZER> void optimizerStatic8bit(T* p, T* g,
     case RMSPROP:
     case ADAGRAD:
 			CUDA_CHECK_RETURN(hipMemset(new_max1, 0, 1*sizeof(float)));
-			kPreconditionOptimizerStatic8bit1State<T, OPTIMIZER><<<num_blocks, 256>>>(p, g, state1, unorm, beta1, beta2, eps, step, quantiles1, max1, new_max1, weight_decay, gnorm_scale, n);
+			kPreconditionOptimizerStatic8bit1State<T, OPTIMIZER><<<dim3(num_blocks), dim3(256), 0, 0>>>(p, g, state1, unorm, beta1, beta2, eps, step, quantiles1, max1, new_max1, weight_decay, gnorm_scale, n);
 			CUDA_CHECK_RETURN(hipPeekAtLastError());
-			kOptimizerStatic8bit1State<T, OPTIMIZER><<<num_blocks, 1024>>>(p, g, state1, unorm, max_unorm, param_norm, beta1, beta2, eps, step, lr,
+			kOptimizerStatic8bit1State<T, OPTIMIZER><<<dim3(num_blocks), dim3(1024), 0, 0>>>(p, g, state1, unorm, max_unorm, param_norm, beta1, beta2, eps, step, lr,
 																														quantiles1, max1, new_max1, weight_decay, gnorm_scale, n);
 			CUDA_CHECK_RETURN(hipPeekAtLastError());
 			break;
     case LION:
       // in lion, the momentum update happens after the parameter update
-      kOptimizerStatic8bit1State<T, OPTIMIZER><<<num_blocks, 1024>>>(p, g, state1, unorm, max_unorm, param_norm, beta1, beta2, eps, step, lr,
+      kOptimizerStatic8bit1State<T, OPTIMIZER><<<dim3(num_blocks), dim3(1024), 0, 0>>>(p, g, state1, unorm, max_unorm, param_norm, beta1, beta2, eps, step, lr,
                                                             quantiles1, max1, new_max1, weight_decay, gnorm_scale, n);
       CUDA_CHECK_RETURN(hipPeekAtLastError());
 
       CUDA_CHECK_RETURN(hipMemset(new_max1, 0, 1*sizeof(float)));
-      kPreconditionOptimizerStatic8bit1State<T, OPTIMIZER><<<num_blocks, 256>>>(p, g, state1, unorm, beta1, beta2, eps, step, quantiles1, max1, new_max1, weight_decay, gnorm_scale, n);
+      kPreconditionOptimizerStatic8bit1State<T, OPTIMIZER><<<dim3(num_blocks), dim3(256), 0, 0>>>(p, g, state1, unorm, beta1, beta2, eps, step, quantiles1, max1, new_max1, weight_decay, gnorm_scale, n);
       CUDA_CHECK_RETURN(hipPeekAtLastError());
       break;
 		default:
@@ -213,7 +214,7 @@ template<typename T, int OPTIMIZER> void optimizerStatic8bitBlockwise(T* p, T* g
 		case ADAM:
 			num_blocks = n/BLOCKSIZE_2STATE;
 			num_blocks = n % BLOCKSIZE_2STATE == 0 ? num_blocks : num_blocks + 1;
-			kOptimizerStatic8bit2StateBlockwise<T, OPTIMIZER, BLOCKSIZE_2STATE, NUM_2STATE><<<num_blocks, BLOCKSIZE_2STATE/NUM_2STATE>>>(p, g, state1, state2, beta1, beta2, eps, step, lr,
+			kOptimizerStatic8bit2StateBlockwise<T, OPTIMIZER, BLOCKSIZE_2STATE, NUM_2STATE><<<dim3(num_blocks), dim3(BLOCKSIZE_2STATE/NUM_2STATE), 0, 0>>>(p, g, state1, state2, beta1, beta2, eps, step, lr,
 																														quantiles1, quantiles2, absmax1, absmax2, weight_decay, gnorm_scale, skip_zeros, n);
 			CUDA_CHECK_RETURN(hipPeekAtLastError());
 		break;
@@ -223,7 +224,7 @@ template<typename T, int OPTIMIZER> void optimizerStatic8bitBlockwise(T* p, T* g
     case LION:
 			num_blocks = n/BLOCKSIZE_1STATE;
 			num_blocks = n % BLOCKSIZE_1STATE == 0 ? num_blocks : num_blocks + 1;
-			kOptimizerStatic8bit1StateBlockwise<T, OPTIMIZER, BLOCKSIZE_1STATE, NUM_1STATE><<<num_blocks, BLOCKSIZE_1STATE/NUM_1STATE>>>(p, g, state1, beta1, beta2, eps, step, lr,
+			kOptimizerStatic8bit1StateBlockwise<T, OPTIMIZER, BLOCKSIZE_1STATE, NUM_1STATE><<<dim3(num_blocks), dim3(BLOCKSIZE_1STATE/NUM_1STATE), 0, 0>>>(p, g, state1, beta1, beta2, eps, step, lr,
 																														quantiles1, absmax1, weight_decay, gnorm_scale, skip_zeros, n);
 			CUDA_CHECK_RETURN(hipPeekAtLastError());
 		break;
@@ -237,7 +238,7 @@ template<typename T> void percentileClipping(T * g, float *gnorm_vec, int step, 
   int num_blocks = n/2048;
   num_blocks = n % 2048 == 0 ? num_blocks : num_blocks + 1;
 	CUDA_CHECK_RETURN(hipMemset(&gnorm_vec[step % 100], 0, 1*sizeof(float)));
-  kPercentileClipping<T, 2048, 4><<<num_blocks, 512>>>(g, gnorm_vec, step, n);
+  kPercentileClipping<T, 2048, 4><<<dim3(num_blocks), dim3(512), 0, 0>>>(g, gnorm_vec, step, n);
   CUDA_CHECK_RETURN(hipPeekAtLastError());
 }
 
@@ -499,7 +500,7 @@ void dequant_mm_int32_fp16(int *A, float *rowStats, float *colStats, half *out, 
   num_blocks = num_blocks*(tileCols/32);
   assert(threads <= tilesize);
 
-  kdequant_mm_int32_fp16<4, 128, 512><<<num_blocks, threads>>>(A, rowStats, colStats, out, newRowStats, newcolStats, bias, numRows, numCols, tileCols, n);
+  kdequant_mm_int32_fp16<4, 128, 512><<<dim3(num_blocks), dim3(threads), 0, 0>>>(A, rowStats, colStats, out, newRowStats, newcolStats, bias, numRows, numCols, tileCols, n);
   CUDA_CHECK_RETURN(hipPeekAtLastError());
 }
 
@@ -518,9 +519,9 @@ void getColRowStats(half * A, float *rowStats, float *colStats, int *nnz_count_r
   int num_blocks = row_tiles * col_tiles;
 
   if(nnz_threshold == 0.0)
-    kgetColRowStats<half, STATS_THREADS, STATS_ITEMS, STATS_ROWS, STATS_THREADS*STATS_ITEMS, 0><<<num_blocks, STATS_THREADS>>>(A, rowStats, colStats, nnz_count_row, nnz_threshold, rows, cols, tiledRows, tiledCols);
+    kgetColRowStats<half, STATS_THREADS, STATS_ITEMS, STATS_ROWS, STATS_THREADS*STATS_ITEMS, 0><<<dim3(num_blocks), dim3(STATS_THREADS), 0, 0>>>(A, rowStats, colStats, nnz_count_row, nnz_threshold, rows, cols, tiledRows, tiledCols);
   else if(nnz_threshold != 0.0)
-    kgetColRowStats<half, STATS_THREADS, STATS_ITEMS, STATS_ROWS, STATS_THREADS*STATS_ITEMS, 1><<<num_blocks, STATS_THREADS>>>(A, rowStats, colStats, nnz_count_row, nnz_threshold, rows, cols, tiledRows, tiledCols);
+    kgetColRowStats<half, STATS_THREADS, STATS_ITEMS, STATS_ROWS, STATS_THREADS*STATS_ITEMS, 1><<<dim3(num_blocks), dim3(STATS_THREADS), 0, 0>>>(A, rowStats, colStats, nnz_count_row, nnz_threshold, rows, cols, tiledRows, tiledCols);
   CUDA_CHECK_RETURN(hipPeekAtLastError());
 
 }
@@ -541,9 +542,9 @@ void doubleRowColQuant(half * A, float *rowStats, float *colStats, char *out_col
 
 
   if(threshold > 0.0f)
-    kDoubleRowColQuant<64, 4, 16, 64*4, 1><<<num_blocks, threads>>>(A, rowStats, colStats, out_col_normed, out_row_normed, rowidx, colidx, val, nnz_block_ptr, threshold, rows, cols, tiledCols);
+    kDoubleRowColQuant<64, 4, 16, 64*4, 1><<<dim3(num_blocks), dim3(threads), 0, 0>>>(A, rowStats, colStats, out_col_normed, out_row_normed, rowidx, colidx, val, nnz_block_ptr, threshold, rows, cols, tiledCols);
   else
-    kDoubleRowColQuant<64, 4, 16, 64*4, 0><<<num_blocks, threads>>>(A, rowStats, colStats, out_col_normed, out_row_normed, rowidx, colidx, val, nnz_block_ptr, threshold, rows, cols, tiledCols);
+    kDoubleRowColQuant<64, 4, 16, 64*4, 0><<<dim3(num_blocks), dim3(threads), 0, 0>>>(A, rowStats, colStats, out_col_normed, out_row_normed, rowidx, colidx, val, nnz_block_ptr, threshold, rows, cols, tiledCols);
 
   CUDA_CHECK_RETURN(hipPeekAtLastError());
 }
@@ -588,7 +589,7 @@ template <int FORMAT, int TRANSPOSE> void transformRowToFormat(char * A, char *o
     }
   }
 
-  kTransformRowToFormat<256, 8, 32, 32*8, TRANSPOSE, FORMAT><<<num_blocks, threads>>>(A, out, rows, cols, tiledCols, outRows, outCols);
+  kTransformRowToFormat<256, 8, 32, 32*8, TRANSPOSE, FORMAT><<<dim3(num_blocks), dim3(threads), 0, 0>>>(A, out, rows, cols, tiledCols, outRows, outCols);
   CUDA_CHECK_RETURN(hipPeekAtLastError());
 }
 
@@ -650,7 +651,7 @@ void spmm_coo(hipsparseHandle_t handle, int *A_rowidx, int *A_colidx, half *A_va
 template <typename T, int BITS> void spmm_coo_very_sparse_naive(int *max_count, int *max_idx, int *offset_rowidx, int *rowidx, int *colidx, half *values, T *B, half *out, float *dequant_stats, int nnz_rows, int nnz, int rowsA, int rowsB, int colsB)
 {
 
-  kspmm_coo_very_sparse_naive<T, 8, BITS><<<nnz_rows, 256>>>(max_count, max_idx, offset_rowidx, rowidx, colidx, values, B, out, dequant_stats, nnz, rowsA, rowsB, colsB);
+  kspmm_coo_very_sparse_naive<T, 8, BITS><<<dim3(nnz_rows), dim3(256), 0, 0>>>(max_count, max_idx, offset_rowidx, rowidx, colidx, values, B, out, dequant_stats, nnz, rowsA, rowsB, colsB);
   CUDA_CHECK_RETURN(hipPeekAtLastError());
 }
 
@@ -673,7 +674,7 @@ template <int FORMAT> void extractOutliers(char * A, int *idx, char *out, int id
       tiledRows = fill_up_to_nearest_multiple(rows, 32);
 	}
 
-  kExtractOutliers<FORMAT><<<num_blocks, threads>>>(A, idx, out, idx_size, rows, cols, tiledRows, tiledCols);
+  kExtractOutliers<FORMAT><<<dim3(num_blocks), dim3(threads), 0, 0>>>(A, idx, out, idx_size, rows, cols, tiledRows, tiledCols);
   CUDA_CHECK_RETURN(hipPeekAtLastError());
 }
 
@@ -698,7 +699,7 @@ template <typename T> void gemm_host(int m, int n, int k, T * A,  T* B,  T * out
     //gemm_device<T, 32, 32><<< num_blocks, 32, 0, 0 >>>(m,  n,  k, A,  B,  out, lda, ldb, ldc);
   if(bits == 16)
     //gemm_device<T, 16, 256><<< num_blocks, 256, 0, 0 >>>(m,  n,  k, A,  B,  out, lda, ldb, ldc);
-    gemm_device<T, 16, 160><<< num_blocks, 160, 0, 0 >>>(m,  n,  k, A,  B,  out, lda, ldb, ldc);
+    gemm_device<T, 16, 160><<<dim3(num_blocks), dim3(160), 0, 0 >>>(m,  n,  k, A,  B,  out, lda, ldb, ldc);
     //gemm_device<T, 16, 128><<< num_blocks, 128, 0, 0 >>>(m,  n,  k, A,  B,  out, lda, ldb, ldc);
     //gemm_device<T, 16, 96><<< num_blocks, 96, 0, 0 >>>(m,  n,  k, A,  B,  out, lda, ldb, ldc);
     //gemm_device<T, 16, 32><<< num_blocks, 32, 0, 0 >>>(m,  n,  k, A,  B,  out, lda, ldb, ldc);
@@ -718,7 +719,7 @@ template <typename T> void gemm_4bit_inference(int m, int n, int k, T * A,  unsi
 	//cout << m << endl;
 	//cout << n << endl;
 	//cout << k << endl;
-  kgemm_4bit_inference<T, 96><<< num_blocks, 96, 0, 0 >>>(m,  n,  k, A,  B, absmax, out, lda, ldb, ldc, blocksize);
+  kgemm_4bit_inference<T, 96><<< dim3(num_blocks), dim3(96), 0, 0 >>>(m,  n,  k, A,  B, absmax, out, lda, ldb, ldc, blocksize);
   //kgemm_4bit_inference<T, 256><<< num_blocks, 256, 0, 0 >>>(m,  n,  k, A,  B, absmax, out, lda, ldb, ldc, blocksize);
   //kgemm_4bit_inference<T, 160><<< num_blocks, 160, 0, 0 >>>(m,  n,  k, A,  B, absmax, out, lda, ldb, ldc, blocksize);
   //kgemm_4bit_inference<T, 32><<< num_blocks, 32, 0, 0 >>>(m,  n,  k, A,  B, absmax, out, lda, ldb, ldc, blocksize);
@@ -729,7 +730,7 @@ template <typename T, int BITS> void gemm_4bit_inference_naive(int m, int n, int
 
 	int num_blocks = (m+3)/4;
 
-  kgemm_4bit_inference_naive<T, 128, BITS><<< num_blocks, 128, 0, 0 >>>(m,  n,  k, A,  B, absmax, datatype, out, lda, ldb, ldc, blocksize);
+  kgemm_4bit_inference_naive<T, 128, BITS><<< dim3(num_blocks), dim3(128), 0, 0 >>>(m,  n,  k, A,  B, absmax, datatype, out, lda, ldb, ldc, blocksize);
   CUDA_CHECK_RETURN(hipPeekAtLastError());
 }
 

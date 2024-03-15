@@ -26,7 +26,7 @@ endif()
 # Define included source files
 set(CPP_FILES csrc/common.hip.cpp csrc/cpu_ops.hip.cpp csrc/pythonInterface.cpp)
 #set(CUDA_FILES csrc/ops.cu csrc/kernels.cu)
-set(CUDA_FILES csrc/ops.cpp csrc/kernels.hip.cpp)
+set(CUDA_FILES csrc/ops.hip.cpp csrc/kernels.hip.cpp)
 #set(CUDA_FILES obsolete/ops.cu obsolete/kernels.cu)
 set(MPS_FILES csrc/mps_ops.mm)
 set(METAL_FILES csrc/mps_kernels.metal)
@@ -54,10 +54,10 @@ else()
   message(FATAL_ERROR "Could not find HIP")
 endif()
 
-find_package(rocThrust REQUIRED)
+find_package(rocthrust REQUIRED)
 find_package(hipblas REQUIRED)
-find_package(hipSPARSE REQUIRED)
-find_package(rocRAND REQUIRED)
+find_package(hipsparse REQUIRED)
+find_package(rocrand REQUIRED)
 #find_package(hipblaslt REQUIRED)
 #find_package(MIOpen REQUIRED)
 
@@ -108,6 +108,7 @@ elseif(${COMPUTE_BACKEND} STREQUAL "mps")
 else()
     set(BUILD_CUDA OFF)
     set(BUILD_MPS OFF)
+    set(NO_CUBLASLT ON)
 endif()
 
 
@@ -244,10 +245,10 @@ endif()
 
 set_source_files_properties(${CPP_FILES} PROPERTIES LANGUAGE CXX)
 add_library(bitsandbytes SHARED ${SRC_FILES})
-target_include_directories(bitsandbytes PRIVATE ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/include /opt/rocm-6.0.2/include/hipblas /opt/rocm-6.0.2/include/hipblaslt /opt/rocm-6.0.2/include/hipsparse /opt/rocm-6.0.2/include/hipcub /opt/rocm-6.0.2/include/rocwmma)
+target_include_directories(bitsandbytes PRIVATE ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/include /opt/rocm-6.0.2/include/hipblas /opt/rocm-6.0.2/include/rocblas /opt/rocm-6.0.2/include/hipblaslt /opt/rocm-6.0.2/include/hipsparse /opt/rocm-6.0.2/include/hipcub /opt/rocm-6.0.2/include/rocwmma)
 target_compile_features(bitsandbytes PUBLIC cxx_std_14)
 target_include_directories(bitsandbytes PUBLIC csrc include)
-target_link_libraries(bitsandbytes PUBLIC hip::device roc::hipblas roc::rocrand roc::hipsparse)
+target_link_libraries(bitsandbytes PUBLIC hip::device roc::hipblas roc::rocrand roc::hipsparse roc::rocthrust) 
 
 
 if(BUILD_CUDA)
