@@ -743,7 +743,7 @@ template <typename T, int FUNC> void func(T *A, T *B, T value, long n)
   int blocks = n/threads;
   blocks = n % threads == 0 ? blocks : blocks + 1;
   blocks = blocks > 65535 ? 65535 : blocks;
-  kfunc<T, FUNC><<<blocks, 512>>>(A, B, value, n);
+  kfunc<T, FUNC><<<dim3(blocks), dim3(512), 0, 0>>>(A, B, value, n);
   CUDA_CHECK_RETURN(hipPeekAtLastError());
 }
 
