@@ -2,11 +2,11 @@
 //
 // This source code is licensed under the MIT license found in the
 // LICENSE file in the root directory of this source tree.
-
 #include "ops.hip.h"
 #include "kernels.hip.h"
 #include <hipcub/device/device_scan.hpp>
 #include <hipblas.h>
+#include <hipblaslt.h>
 #include <limits>
 #include <BinSearch.h>
 #include <cassert>
@@ -302,37 +302,37 @@ int roundoff(int v, int d) {
 
 #ifdef NO_CUBLASLT
 #else
-template<int ORDER> cublasLtOrder_t get_order()
+template<int ORDER> hipblasLtOrder_t get_order()
 {
 	switch(ORDER)
 	{
 		case ROW:
-      return CUBLASLT_ORDER_ROW;
+      return HIPBLASLT_ORDER_ROW;
 			break;
     case COL:
-      return CUBLASLT_ORDER_COL;
+      return HIPBLASLT_ORDER_COL;
       break;
     case COL32:
-      return CUBLASLT_ORDER_COL32;
+      return HIPBLASLT_ORDER_COL;
       break;
     case COL_TURING:
-      return CUBLASLT_ORDER_COL4_4R2_8C;
+      return HIPBLASLT_ORDER_COL;
       break;
     case COL_AMPERE:
-      return CUBLASLT_ORDER_COL32_2R_4R4;
+      return HIPBLASLT_ORDER_COL;
       break;
 		default:
 			break;
   }
 
-	return CUBLASLT_ORDER_ROW;
+	return HIPBLASLT_ORDER_ROW;
 }
 
-template cublasLtOrder_t get_order<ROW>();
-template cublasLtOrder_t get_order<COL>();
-template cublasLtOrder_t get_order<COL32>();
-template cublasLtOrder_t get_order<COL_TURING>();
-template cublasLtOrder_t get_order<COL_AMPERE>();
+template hipblasLtOrder_t get_order<ROW>();
+template hipblasLtOrder_t get_order<COL>();
+template hipblasLtOrder_t get_order<COL32>();
+template hipblasLtOrder_t get_order<COL_TURING>();
+template hipblasLtOrder_t get_order<COL_AMPERE>();
 #endif
 
 
@@ -367,119 +367,119 @@ template int get_leading_dim<ROW>(int dim1, int dim2);
 template int get_leading_dim<COL>(int dim1, int dim2);
 template int get_leading_dim<COL32>(int dim1, int dim2);
 
-template <typename T, int SRC, int TARGET, bool transpose, int DTYPE> void transform(cublasLtHandle_t ltHandle, T *A, T *out, int dim1, int dim2)
+template <typename T, int SRC, int TARGET, bool transpose, int DTYPE> void transform(hipblasLtHandle_t ltHandle, T *A, T *out, int dim1, int dim2)
 {
 #ifdef NO_CUBLASLT
 #else
-  cublasLtOrder_t orderA = get_order<SRC>();
-  cublasLtOrder_t orderOut = get_order<TARGET>();
-  int ldA = get_leading_dim<SRC>(dim1, dim2);
-  int ldOut = get_leading_dim<TARGET>(dim1, dim2);
-
-  cublasLtMatrixLayout_t A_desc = NULL, out_desc = NULL;
-  cublasLtMatrixTransformDesc_t A2Out_desc = NULL;
-  hipblasOperation_t opTranspose = HIPBLAS_OP_T;
-  float transformAlpha = 1.0f, transformBeta = 0.0f;
-
-
-  if(DTYPE == 8)
-  {
-    checkCublasStatus(hipblasLtMatrixLayoutCreate(&A_desc, HIP_R_8I, dim1, dim2, ldA));
-    checkCublasStatus(hipblasLtMatrixLayoutCreate(&out_desc, HIP_R_8I, dim1, dim2, ldOut));
-  }
-  else if(DTYPE == 32)
-  {
-    checkCublasStatus(hipblasLtMatrixLayoutCreate(&A_desc, HIP_R_32I, dim1, dim2, ldA));
-    checkCublasStatus(hipblasLtMatrixLayoutCreate(&out_desc, HIP_R_32I, dim1, dim2, ldOut));
-  }
-  else
-  {
-    printf("ERROR WRONG TYPE FOR TRANSFORM: %i\n", DTYPE);
-  }
-
-  checkCublasStatus(cublasLtMatrixLayoutSetAttribute(A_desc, CUBLASLT_MATRIX_LAYOUT_ORDER, &orderA, sizeof(orderA)));
-  checkCublasStatus(cublasLtMatrixLayoutSetAttribute(out_desc, CUBLASLT_MATRIX_LAYOUT_ORDER, &orderOut, sizeof(orderOut)));
-
-  checkCublasStatus(cublasLtMatrixTransformDescCreate(&A2Out_desc, HIP_R_32F));
-
-  if(transpose){ checkCublasStatus(cublasLtMatrixTransformDescSetAttribute(A2Out_desc, CUBLASLT_MATRIX_TRANSFORM_DESC_TRANSA, &opTranspose, sizeof(opTranspose))); }
-
-  checkCublasStatus(cublasLtMatrixTransform(ltHandle, A2Out_desc, &transformAlpha, A, A_desc, &transformBeta, NULL, NULL, out, out_desc, 0));
-
-  if (A_desc) checkCublasStatus(cublasLtMatrixLayoutDestroy(A_desc));
-  if (out_desc) checkCublasStatus(cublasLtMatrixLayoutDestroy(out_desc));
-  if (A2Out_desc) checkCublasStatus(cublasLtMatrixTransformDescDestroy(A2Out_desc));
+//  hipblasLtOrder_t orderA = get_order<SRC>();
+//  hipblasLtOrder_t orderOut = get_order<TARGET>();
+//  int ldA = get_leading_dim<SRC>(dim1, dim2);
+//  int ldOut = get_leading_dim<TARGET>(dim1, dim2);
+//
+//  hipblasLtMatrixLayout_t A_desc = NULL, out_desc = NULL;
+//  hipblasLtMatrixTransformDesc_t A2Out_desc = NULL;
+//  hipblasOperation_t opTranspose = HIPBLAS_OP_T;
+//  float transformAlpha = 1.0f, transformBeta = 0.0f;
+//
+//
+//  if(DTYPE == 8)
+//  {
+//    checkCublasStatus(hipblasLtMatrixLayoutCreate(&A_desc, HIP_R_8I, dim1, dim2, ldA));
+//    checkCublasStatus(hipblasLtMatrixLayoutCreate(&out_desc, HIP_R_8I, dim1, dim2, ldOut));
+//  }
+//  else if(DTYPE == 32)
+//  {
+//    checkCublasStatus(hipblasLtMatrixLayoutCreate(&A_desc, HIP_R_32I, dim1, dim2, ldA));
+//    checkCublasStatus(hipblasLtMatrixLayoutCreate(&out_desc, HIP_R_32I, dim1, dim2, ldOut));
+//  }
+//  else
+//  {
+//    printf("ERROR WRONG TYPE FOR TRANSFORM: %i\n", DTYPE);
+//  }
+//
+//  checkCublasStatus(cublasLtMatrixLayoutSetAttribute(A_desc, CUBLASLT_MATRIX_LAYOUT_ORDER, &orderA, sizeof(orderA)));
+//  checkCublasStatus(cublasLtMatrixLayoutSetAttribute(out_desc, CUBLASLT_MATRIX_LAYOUT_ORDER, &orderOut, sizeof(orderOut)));
+//
+//  checkCublasStatus(hipblasLtMatrixTransformDescCreate(&A2Out_desc, HIP_R_32F));
+//
+//  if(transpose){ checkCublasStatus(hipblasLtMatrixTransformDescSetAttribute(A2Out_desc, HIPBLASLT_MATRIX_TRANSFORM_DESC_TRANSA, &opTranspose, sizeof(opTranspose))); }
+//
+//  checkCublasStatus(hipblasLtMatrixTransform(ltHandle, A2Out_desc, &transformAlpha, A, A_desc, &transformBeta, NULL, NULL, out, out_desc, 0));
+//
+//  if (A_desc) checkCublasStatus(hipblasLtMatrixLayoutDestroy(A_desc));
+//  if (out_desc) checkCublasStatus(hipblasLtMatrixLayoutDestroy(out_desc));
+//  if (A2Out_desc) checkCublasStatus(hipblasLtMatrixTransformDescDestroy(A2Out_desc));
 #endif
 }
 
-template void transform<int8_t, ROW, COL, false, 8>(cublasLtHandle_t ltHandle, int8_t *A, int8_t *out, int dim1, int dim2);
-template void transform<int8_t, ROW, ROW, false, 8>(cublasLtHandle_t ltHandle, int8_t *A, int8_t *out, int dim1, int dim2);
-template void transform<int8_t, ROW, COL32, false, 8>(cublasLtHandle_t ltHandle, int8_t *A, int8_t *out, int dim1, int dim2);
-template void transform<int32_t, ROW, COL32, false, 32>(cublasLtHandle_t ltHandle, int32_t *A, int32_t *out, int dim1, int dim2);
-template void transform<int8_t, ROW, COL_TURING, false, 8>(cublasLtHandle_t ltHandle, int8_t *A, int8_t *out, int dim1, int dim2);
-template void transform<int8_t, ROW, COL_AMPERE, false, 8>(cublasLtHandle_t ltHandle, int8_t *A, int8_t *out, int dim1, int dim2);
-template void transform<int8_t, COL32, ROW, false, 8>(cublasLtHandle_t ltHandle, int8_t *A, int8_t *out, int dim1, int dim2);
-template void transform<int32_t, COL32, ROW, false, 32>(cublasLtHandle_t ltHandle, int32_t *A, int32_t *out, int dim1, int dim2);
+template void transform<int8_t, ROW, COL, false, 8>(hipblasLtHandle_t ltHandle, int8_t *A, int8_t *out, int dim1, int dim2);
+template void transform<int8_t, ROW, ROW, false, 8>(hipblasLtHandle_t ltHandle, int8_t *A, int8_t *out, int dim1, int dim2);
+template void transform<int8_t, ROW, COL32, false, 8>(hipblasLtHandle_t ltHandle, int8_t *A, int8_t *out, int dim1, int dim2);
+template void transform<int32_t, ROW, COL32, false, 32>(hipblasLtHandle_t ltHandle, int32_t *A, int32_t *out, int dim1, int dim2);
+template void transform<int8_t, ROW, COL_TURING, false, 8>(hipblasLtHandle_t ltHandle, int8_t *A, int8_t *out, int dim1, int dim2);
+template void transform<int8_t, ROW, COL_AMPERE, false, 8>(hipblasLtHandle_t ltHandle, int8_t *A, int8_t *out, int dim1, int dim2);
+template void transform<int8_t, COL32, ROW, false, 8>(hipblasLtHandle_t ltHandle, int8_t *A, int8_t *out, int dim1, int dim2);
+template void transform<int32_t, COL32, ROW, false, 32>(hipblasLtHandle_t ltHandle, int32_t *A, int32_t *out, int dim1, int dim2);
 
-template <int FORMATB, int DTYPE_OUT, int SCALE_ROWS> int igemmlt(cublasLtHandle_t ltHandle, int m, int n, int k, const int8_t *A, const int8_t *B, void *C, float *row_scale, int lda, int ldb, int ldc)
+template <int FORMATB, int DTYPE_OUT, int SCALE_ROWS> int igemmlt(hipblasLtHandle_t ltHandle, int m, int n, int k, const int8_t *A, const int8_t *B, void *C, float *row_scale, int lda, int ldb, int ldc)
 {
 #ifdef NO_CUBLASLT
 	return ERR_NOT_IMPLEMENTED;
 #else
-    int has_error = 0;
-    cublasLtMatmulDesc_t matmulDesc = NULL;
-    cublasLtMatrixLayout_t Adesc = NULL, Bdesc = NULL, Cdesc = NULL;
-    hipblasOperation_t opT = HIPBLAS_OP_T;
-    cublasLtPointerMode_t alphaVec = CUBLASLT_POINTER_MODE_ALPHA_DEVICE_VECTOR_BETA_ZERO;
-    cublasLtOrder_t col32 = CUBLASLT_ORDER_COL32;
-    cublasLtOrder_t col_turing = CUBLASLT_ORDER_COL4_4R2_8C;
-    cublasLtOrder_t col_ampere = CUBLASLT_ORDER_COL32_2R_4R4;
-
-    has_error |= checkCublasStatus(hipblasLtMatrixLayoutCreate(&Adesc, HIP_R_8I, m, k, lda));
-    has_error |= checkCublasStatus(hipblasLtMatrixLayoutCreate(&Bdesc, HIP_R_8I, n, k, ldb));
-
-    has_error |= checkCublasStatus(cublasLtMatrixLayoutSetAttribute(Adesc, CUBLASLT_MATRIX_LAYOUT_ORDER, &col32, sizeof(col32)));
-    if(FORMATB == COL_TURING)
-      has_error |= checkCublasStatus(cublasLtMatrixLayoutSetAttribute(Bdesc, CUBLASLT_MATRIX_LAYOUT_ORDER, &col_turing, sizeof(col_turing)));
-    else
-      has_error |= checkCublasStatus(cublasLtMatrixLayoutSetAttribute(Bdesc, CUBLASLT_MATRIX_LAYOUT_ORDER, &col_ampere, sizeof(col_ampere)));
-
-    if(DTYPE_OUT == 32)
-    {
-      has_error |= checkCublasStatus(cublasLtMatmulDescCreate(&matmulDesc, HIPBLAS_COMPUTE_32I, HIP_R_32I));
-      has_error |= checkCublasStatus(cublasLtMatmulDescSetAttribute(matmulDesc, CUBLASLT_MATMUL_DESC_TRANSB, &opT, sizeof(opT)));
-      has_error |= checkCublasStatus(hipblasLtMatrixLayoutCreate(&Cdesc, HIP_R_32I, m, n, ldc));
-      has_error |= checkCublasStatus(cublasLtMatrixLayoutSetAttribute(Cdesc, CUBLASLT_MATRIX_LAYOUT_ORDER, &col32, sizeof(col32)));
-      int alpha = 1, beta = 0;
-      has_error |= checkCublasStatus(cublasLtMatmul(ltHandle, matmulDesc,&alpha, A, Adesc, B, Bdesc, &beta, (int32_t*)C, Cdesc, (int32_t*)C, Cdesc, NULL, NULL, 0, 0));
-    }
-    else
-    {
-      has_error |= checkCublasStatus(cublasLtMatmulDescCreate(&matmulDesc, HIPBLAS_COMPUTE_32I, HIP_R_32F));
-      has_error |= checkCublasStatus(cublasLtMatmulDescSetAttribute(matmulDesc, CUBLASLT_MATMUL_DESC_TRANSB, &opT, sizeof(opT)));
-      has_error |= checkCublasStatus(hipblasLtMatrixLayoutCreate(&Cdesc, HIP_R_8I, m, n, ldc));
-      has_error |= checkCublasStatus(cublasLtMatrixLayoutSetAttribute(Cdesc, CUBLASLT_MATRIX_LAYOUT_ORDER, &col32, sizeof(col32)));
-      if(!SCALE_ROWS)
-      {
-        float alpha = 1.0f, beta = 0.0f;
-        has_error |= checkCublasStatus(cublasLtMatmul(ltHandle, matmulDesc,&alpha, A, Adesc, B, Bdesc, &beta, (int8_t*)C, Cdesc, (int8_t*)C, Cdesc, NULL, NULL, 0, 0));
-      }
-      else
-      {
-        has_error |= checkCublasStatus(cublasLtMatmulDescSetAttribute(matmulDesc, CUBLASLT_MATMUL_DESC_POINTER_MODE, &alphaVec, sizeof(alphaVec)));
-        has_error |= checkCublasStatus(cublasLtMatmul(ltHandle, matmulDesc, row_scale, A, Adesc, B, Bdesc, NULL, (int8_t*)C, Cdesc, (int8_t*)C, Cdesc, NULL, NULL, 0, 0));
-      }
-    }
-
-
-    if (Cdesc) has_error |= checkCublasStatus(cublasLtMatrixLayoutDestroy(Cdesc));
-    if (Bdesc) has_error |= checkCublasStatus(cublasLtMatrixLayoutDestroy(Bdesc));
-    if (Adesc) has_error |= checkCublasStatus(cublasLtMatrixLayoutDestroy(Adesc));
-    if (matmulDesc) has_error |= checkCublasStatus(cublasLtMatmulDescDestroy(matmulDesc));
-    if(has_error == 1)
-      printf("error detected");
-
-    return has_error;
+//    int has_error = 0;
+//    hipblasLtMatmulDesc_t matmulDesc = NULL;
+//    hipblasLtMatrixLayout_t Adesc = NULL, Bdesc = NULL, Cdesc = NULL;
+//    hipblasOperation_t opT = HIPBLAS_OP_T;
+//    hipblasLtPointerMode_t alphaVec = HIPBLASLT_POINTER_MODE_ALPHA_DEVICE_VECTOR_BETA_HOST;
+//    hipblasLtOrder_t col32 = HIPBLASLT_ORDER_COL;
+//    hipblasLtOrder_t col_turing = CUBLASLT_ORDER_COL4_4R2_8C;
+//    hipblasLtOrder_t col_ampere = HIPBLASLT_ORDER_COL;
+//
+//    has_error |= checkCublasStatus(hipblasLtMatrixLayoutCreate(&Adesc, HIP_R_8I, m, k, lda));
+//    has_error |= checkCublasStatus(hipblasLtMatrixLayoutCreate(&Bdesc, HIP_R_8I, n, k, ldb));
+//
+//    has_error |= checkCublasStatus(cublasLtMatrixLayoutSetAttribute(Adesc, CUBLASLT_MATRIX_LAYOUT_ORDER, &col32, sizeof(col32)));
+//    if(FORMATB == COL_TURING)
+//      has_error |= checkCublasStatus(cublasLtMatrixLayoutSetAttribute(Bdesc, CUBLASLT_MATRIX_LAYOUT_ORDER, &col_turing, sizeof(col_turing)));
+//    else
+//      has_error |= checkCublasStatus(cublasLtMatrixLayoutSetAttribute(Bdesc, CUBLASLT_MATRIX_LAYOUT_ORDER, &col_ampere, sizeof(col_ampere)));
+//
+//    if(DTYPE_OUT == 32)
+//    {
+//      has_error |= checkCublasStatus(hipblasLtMatmulDescCreate(&matmulDesc, HIPBLAS_COMPUTE_32I, HIP_R_32I));
+//      has_error |= checkCublasStatus(hipblasLtMatmulDescSetAttribute(matmulDesc, HIPBLASLT_MATMUL_DESC_TRANSB, &opT, sizeof(opT)));
+//      has_error |= checkCublasStatus(hipblasLtMatrixLayoutCreate(&Cdesc, HIP_R_32I, m, n, ldc));
+//      has_error |= checkCublasStatus(cublasLtMatrixLayoutSetAttribute(Cdesc, CUBLASLT_MATRIX_LAYOUT_ORDER, &col32, sizeof(col32)));
+//      int alpha = 1, beta = 0;
+//      has_error |= checkCublasStatus(hipblasLtMatmul(ltHandle, matmulDesc,&alpha, A, Adesc, B, Bdesc, &beta, (int32_t*)C, Cdesc, (int32_t*)C, Cdesc, NULL, NULL, 0, 0));
+//    }
+//    else
+//    {
+//      has_error |= checkCublasStatus(hipblasLtMatmulDescCreate(&matmulDesc, HIPBLAS_COMPUTE_32I, HIP_R_32F));
+//      has_error |= checkCublasStatus(hipblasLtMatmulDescSetAttribute(matmulDesc, HIPBLASLT_MATMUL_DESC_TRANSB, &opT, sizeof(opT)));
+//      has_error |= checkCublasStatus(hipblasLtMatrixLayoutCreate(&Cdesc, HIP_R_8I, m, n, ldc));
+//      has_error |= checkCublasStatus(cublasLtMatrixLayoutSetAttribute(Cdesc, CUBLASLT_MATRIX_LAYOUT_ORDER, &col32, sizeof(col32)));
+//      if(!SCALE_ROWS)
+//      {
+//        float alpha = 1.0f, beta = 0.0f;
+//        has_error |= checkCublasStatus(hipblasLtMatmul(ltHandle, matmulDesc,&alpha, A, Adesc, B, Bdesc, &beta, (int8_t*)C, Cdesc, (int8_t*)C, Cdesc, NULL, NULL, 0, 0));
+//      }
+//      else
+//      {
+//        has_error |= checkCublasStatus(hipblasLtMatmulDescSetAttribute(matmulDesc, HIPBLASLT_MATMUL_DESC_POINTER_MODE, &alphaVec, sizeof(alphaVec)));
+//        has_error |= checkCublasStatus(hipblasLtMatmul(ltHandle, matmulDesc, row_scale, A, Adesc, B, Bdesc, NULL, (int8_t*)C, Cdesc, (int8_t*)C, Cdesc, NULL, NULL, 0, 0));
+//      }
+//    }
+//
+//
+//    if (Cdesc) has_error |= checkCublasStatus(hipblasLtMatrixLayoutDestroy(Cdesc));
+//    if (Bdesc) has_error |= checkCublasStatus(hipblasLtMatrixLayoutDestroy(Bdesc));
+//    if (Adesc) has_error |= checkCublasStatus(hipblasLtMatrixLayoutDestroy(Adesc));
+//    if (matmulDesc) has_error |= checkCublasStatus(hipblasLtMatmulDescDestroy(matmulDesc));
+//    if(has_error == 1)
+//      printf("error detected");
+//
+//    return has_error;
 #endif // NO_CUBLASLT
 }
 
@@ -766,12 +766,12 @@ template void extractOutliers<COL_AMPERE>(char * A, int *idx, char *out, int idx
 template void spmm_coo_very_sparse_naive<half, 16>(int *max_count, int *max_idx, int *offset_rowidx, int *rowidx, int *colidx, half *values, half *B, half *out, float *dequant_stats, int nnz_rows, int nnz, int rowsA, int rowsB, int colsB);
 template void spmm_coo_very_sparse_naive<signed char, 8>(int *max_count, int *max_idx, int *offset_rowidx, int *rowidx, int *colidx, half *values, signed char *B, half *out, float *dequant_stats, int nnz_rows, int nnz, int rowsA, int rowsB, int colsB);
 
-template int igemmlt<COL_TURING, 32, 0>(cublasLtHandle_t ltHandle, int m, int n, int k, const int8_t *A, const int8_t *B, void *C, float *row_scale, int lda, int ldb, int ldc);
-template int igemmlt<COL_TURING, 8, 0>(cublasLtHandle_t ltHandle, int m, int n, int k, const int8_t *A, const int8_t *B, void *C, float *row_scale, int lda, int ldb, int ldc);
-template int igemmlt<COL_TURING, 8, 1>(cublasLtHandle_t ltHandle, int m, int n, int k, const int8_t *A, const int8_t *B, void *C, float *row_scale, int lda, int ldb, int ldc);
-template int igemmlt<COL_AMPERE, 32, 0>(cublasLtHandle_t ltHandle, int m, int n, int k, const int8_t *A, const int8_t *B, void *C, float *row_scale, int lda, int ldb, int ldc);
-template int igemmlt<COL_AMPERE, 8, 0>(cublasLtHandle_t ltHandle, int m, int n, int k, const int8_t *A, const int8_t *B, void *C, float *row_scale, int lda, int ldb, int ldc);
-template int igemmlt<COL_AMPERE, 8, 1>(cublasLtHandle_t ltHandle, int m, int n, int k, const int8_t *A, const int8_t *B, void *C, float *row_scale, int lda, int ldb, int ldc);
+template int igemmlt<COL_TURING, 32, 0>(hipblasLtHandle_t ltHandle, int m, int n, int k, const int8_t *A, const int8_t *B, void *C, float *row_scale, int lda, int ldb, int ldc);
+template int igemmlt<COL_TURING, 8, 0>(hipblasLtHandle_t ltHandle, int m, int n, int k, const int8_t *A, const int8_t *B, void *C, float *row_scale, int lda, int ldb, int ldc);
+template int igemmlt<COL_TURING, 8, 1>(hipblasLtHandle_t ltHandle, int m, int n, int k, const int8_t *A, const int8_t *B, void *C, float *row_scale, int lda, int ldb, int ldc);
+template int igemmlt<COL_AMPERE, 32, 0>(hipblasLtHandle_t ltHandle, int m, int n, int k, const int8_t *A, const int8_t *B, void *C, float *row_scale, int lda, int ldb, int ldc);
+template int igemmlt<COL_AMPERE, 8, 0>(hipblasLtHandle_t ltHandle, int m, int n, int k, const int8_t *A, const int8_t *B, void *C, float *row_scale, int lda, int ldb, int ldc);
+template int igemmlt<COL_AMPERE, 8, 1>(hipblasLtHandle_t ltHandle, int m, int n, int k, const int8_t *A, const int8_t *B, void *C, float *row_scale, int lda, int ldb, int ldc);
 
 template void transformRowToFormat<COL32, 0>(char * A, char *out, int rows, int cols);
 template void transformRowToFormat<COL32, 1>(char * A, char *out, int rows, int cols);
