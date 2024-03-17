@@ -380,8 +380,8 @@ extern "C"
 	void *cget_managed_ptr(size_t bytes)
 	{
 		void *ptr;
-		CUDA_CHECK_RETURN(hipMallocManaged(&ptr, bytes, hipMemAttachHost));
-		CUDA_CHECK_RETURN(hipPeekAtLastError());
+		HIP_CHECK_RETURN(hipMallocManaged(&ptr, bytes, hipMemAttachHost));
+		HIP_CHECK_RETURN(hipPeekAtLastError());
 
 		return ptr;
 	}
@@ -390,11 +390,11 @@ extern "C"
 	{
 
 		int hasPrefetch = 0;
-		CUDA_CHECK_RETURN(hipDeviceGetAttribute(&hasPrefetch, hipDeviceAttributeConcurrentManagedAccess, device)); // 40ns overhead
+		HIP_CHECK_RETURN(hipDeviceGetAttribute(&hasPrefetch, hipDeviceAttributeConcurrentManagedAccess, device)); // 40ns overhead
 		if (hasPrefetch == 0) return;
 
-		CUDA_CHECK_RETURN(hipMemPrefetchAsync(ptr, bytes, device, 0));
-		CUDA_CHECK_RETURN(hipPeekAtLastError());
+		HIP_CHECK_RETURN(hipMemPrefetchAsync(ptr, bytes, device, 0));
+		HIP_CHECK_RETURN(hipPeekAtLastError());
 	}
 
   #define CMAKE_ELEMENTWISE_FUNC(fname, type_name, ctype, FUNC) \

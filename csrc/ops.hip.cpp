@@ -25,16 +25,16 @@ void histogramScatterAdd2D(float* histogram, int *index1, int *index2, float *sr
   int num_blocks = n/threads;
   num_blocks = n % threads == 0 ? num_blocks : num_blocks + 1;
   kHistogramScatterAdd2D<<<dim3(num_blocks), dim3(512), 0, 0>>>(histogram, index1, index2, src, maxidx1, n);
-  CUDA_CHECK_RETURN(hipPeekAtLastError());
+  HIP_CHECK_RETURN(hipPeekAtLastError());
 }
 
 //template <typename T> void estimateQuantiles(T *A, float *code, float offset, int n)
 //{
 //  int num_blocks = n/4096;
 //  num_blocks = n % 4096 == 0 ? num_blocks : num_blocks + 1;
-//	CUDA_CHECK_RETURN(hipMemset(code, 0, 256*sizeof(float)));
+//	HIP_CHECK_RETURN(hipMemset(code, 0, 256*sizeof(float)));
 //  kEstimateQuantiles<T><<<dim3(num_blocks), dim3(512), 0, 0>>>(A, code, offset, std::numeric_limits<T>::max(), n);
-//  CUDA_CHECK_RETURN(hipPeekAtLastError());
+//  HIP_CHECK_RETURN(hipPeekAtLastError());
 //}
 //
 //void quantize(float *code, float *A, unsigned char *out, int n)
@@ -42,7 +42,7 @@ void histogramScatterAdd2D(float* histogram, int *index1, int *index2, float *sr
 //  int num_blocks = n/1024;
 //  num_blocks = n % 1024 == 0 ? num_blocks : num_blocks + 1;
 //  kQuantize<<<dim3(num_blocks), dim3(1024), 0, 0>>>(code, A, out, n);
-//  CUDA_CHECK_RETURN(hipPeekAtLastError());
+//  HIP_CHECK_RETURN(hipPeekAtLastError());
 //}
 //
 //void dequantize(float *code, unsigned char *A, float *out, int n)
@@ -50,7 +50,7 @@ void histogramScatterAdd2D(float* histogram, int *index1, int *index2, float *sr
 //  int num_blocks = n/1024;
 //  num_blocks = n % 1024 == 0 ? num_blocks : num_blocks + 1;
 //  kDequantize<<<dim3(num_blocks), dim3(1024), 0, 0>>>(code, A, out, n);
-//  CUDA_CHECK_RETURN(hipPeekAtLastError());
+//  HIP_CHECK_RETURN(hipPeekAtLastError());
 //}
 //
 //template <typename T, int STOCHASTIC, int DATA_TYPE> void quantizeBlockwise(float * code, T *A, float *absmax, unsigned char *out, float *rand, int rand_offset, int blocksize, const int n)
@@ -74,7 +74,7 @@ void histogramScatterAdd2D(float* histogram, int *index1, int *index2, float *sr
 //    kQuantizeBlockwise<T, 64, 2, 0, DATA_TYPE><<<dim3(num_blocks), dim3(32), 0, 0>>>(code, A, absmax, out, rand, rand_offset, n);
 //
 //
-//  CUDA_CHECK_RETURN(hipPeekAtLastError());
+//  HIP_CHECK_RETURN(hipPeekAtLastError());
 //}
 //
 //template<typename T, int DATA_TYPE> void dequantizeBlockwise(float *code, unsigned char *A, float *absmax, T *out, int blocksize, const int n)
@@ -88,7 +88,7 @@ void histogramScatterAdd2D(float* histogram, int *index1, int *index2, float *sr
 //  else
 //    kDequantizeBlockwise<T, 512, 64, 8, DATA_TYPE><<<dim3((n+tile_size-1)/tile_size), dim3(64), 0, 0>>>(code, A, absmax, out, blocksize, n);
 //
-//  CUDA_CHECK_RETURN(hipPeekAtLastError());
+//  HIP_CHECK_RETURN(hipPeekAtLastError());
 //}
 //
 //
@@ -96,7 +96,7 @@ void histogramScatterAdd2D(float* histogram, int *index1, int *index2, float *sr
 ////{
 ////	int num_blocks = (colsB+32-1)/32;
 ////	kMatmul_inference_4bit<NF4, half, half, half><<<num_blocks, 256>>>(A, B, out, lda, ldb, rowsA, colsA, colsB);
-////  CUDA_CHECK_RETURN(hipPeekAtLastError());
+////  HIP_CHECK_RETURN(hipPeekAtLastError());
 ////}
 //
 //
@@ -112,36 +112,36 @@ void histogramScatterAdd2D(float* histogram, int *index1, int *index2, float *sr
 //		case ADAM:
 //      if(max_unorm > 0.0f)
 //			{
-//				CUDA_CHECK_RETURN(hipMemset(unorm, 0, 1*sizeof(float)));
+//				HIP_CHECK_RETURN(hipMemset(unorm, 0, 1*sizeof(float)));
 //        kPreconditionOptimizer32bit2State<T, OPTIMIZER, 4096, 8><<<dim3(num_blocks), dim3(512), 0, 0>>>(g, p, state1, state2, unorm, beta1, beta2, eps, weight_decay, step, lr, gnorm_scale, n);
-//        CUDA_CHECK_RETURN(hipPeekAtLastError());
+//        HIP_CHECK_RETURN(hipPeekAtLastError());
 //      }
 //			kOptimizer32bit2State<T, OPTIMIZER><<<dim3(num_blocks), dim3(1024), 0, 0>>>(g, p, state1, state2, unorm, max_unorm, param_norm, beta1, beta2, eps, weight_decay, step, lr, gnorm_scale, skip_zeros, n);
-//      CUDA_CHECK_RETURN(hipPeekAtLastError());
+//      HIP_CHECK_RETURN(hipPeekAtLastError());
 //			break;
 //		case MOMENTUM:
 //    case RMSPROP:
 //    case ADAGRAD:
 //      if(max_unorm > 0.0f)
 //			{
-//				CUDA_CHECK_RETURN(hipMemset(unorm, 0, 1*sizeof(float)));
+//				HIP_CHECK_RETURN(hipMemset(unorm, 0, 1*sizeof(float)));
 //				kPreconditionOptimizer32bit1State<T, OPTIMIZER, 4096, 8><<<dim3(num_blocks), dim3(512), 0, 0>>>(g, p, state1, unorm, beta1, beta2, eps, weight_decay, step, lr, gnorm_scale, n);
-//        CUDA_CHECK_RETURN(hipPeekAtLastError());
+//        HIP_CHECK_RETURN(hipPeekAtLastError());
 //			}
 //
 //			kOptimizer32bit1State<T, OPTIMIZER><<<dim3(num_blocks), dim3(1024), 0, 0>>>(g, p, state1, unorm, max_unorm, param_norm, beta1, beta2, eps, weight_decay, step, lr, gnorm_scale, skip_zeros, n);
-//      CUDA_CHECK_RETURN(hipPeekAtLastError());
+//      HIP_CHECK_RETURN(hipPeekAtLastError());
 //			break;
 //    case LION:
 //      // in lion, the momentum update after the parameter update
 //      kOptimizer32bit1State<T, OPTIMIZER><<<dim3(num_blocks), dim3(1024), 0, 0>>>(g, p, state1, unorm, max_unorm, param_norm, beta1, beta2, eps, weight_decay, step, lr, gnorm_scale, skip_zeros, n);
-//      CUDA_CHECK_RETURN(hipPeekAtLastError());
+//      HIP_CHECK_RETURN(hipPeekAtLastError());
 //
 //      if(max_unorm > 0.0f)
 //      {
-//        CUDA_CHECK_RETURN(hipMemset(unorm, 0, 1*sizeof(float)));
+//        HIP_CHECK_RETURN(hipMemset(unorm, 0, 1*sizeof(float)));
 //        kPreconditionOptimizer32bit1State<T, OPTIMIZER, 4096, 8><<<dim3(num_blocks), dim3(512), 0, 0>>>(g, p, state1, unorm, beta1, beta2, eps, weight_decay, step, lr, gnorm_scale, n);
-//        CUDA_CHECK_RETURN(hipPeekAtLastError());
+//        HIP_CHECK_RETURN(hipPeekAtLastError());
 //      }
 //      break;
 //	}
@@ -160,38 +160,38 @@ void histogramScatterAdd2D(float* histogram, int *index1, int *index2, float *sr
 //  int num_blocks = n/4096;
 //  num_blocks = n % 4096 == 0 ? num_blocks : num_blocks + 1;
 //
-//  if(max_unorm > 0.0f){ CUDA_CHECK_RETURN(hipMemset(unorm, 0, 1*sizeof(float))); }
+//  if(max_unorm > 0.0f){ HIP_CHECK_RETURN(hipMemset(unorm, 0, 1*sizeof(float))); }
 //
 //	switch(OPTIMIZER)
 //	{
 //		case ADAM:
-//			CUDA_CHECK_RETURN(hipMemset(new_max1, 0, 1*sizeof(float)));
-//			CUDA_CHECK_RETURN(hipMemset(new_max2, 0, 1*sizeof(float)));
+//			HIP_CHECK_RETURN(hipMemset(new_max1, 0, 1*sizeof(float)));
+//			HIP_CHECK_RETURN(hipMemset(new_max2, 0, 1*sizeof(float)));
 //			kPreconditionOptimizerStatic8bit2State<T, OPTIMIZER><<<dim3(num_blocks), dim3(256), 0, 0>>>(p, g, state1, state2, unorm, beta1, beta2, eps, step, quantiles1, quantiles2, max1, max2, new_max1, new_max2, gnorm_scale, n);
-//			CUDA_CHECK_RETURN(hipPeekAtLastError());
+//			HIP_CHECK_RETURN(hipPeekAtLastError());
 //			kOptimizerStatic8bit2State<T, OPTIMIZER><<<dim3(num_blocks), dim3(1024), 0, 0>>>(p, g, state1, state2, unorm, max_unorm, param_norm, beta1, beta2, eps, step, lr,
 //																														quantiles1, quantiles2, max1, max2, new_max1, new_max2, weight_decay, gnorm_scale, n);
-//			CUDA_CHECK_RETURN(hipPeekAtLastError());
+//			HIP_CHECK_RETURN(hipPeekAtLastError());
 //		break;
 //		case MOMENTUM:
 //    case RMSPROP:
 //    case ADAGRAD:
-//			CUDA_CHECK_RETURN(hipMemset(new_max1, 0, 1*sizeof(float)));
+//			HIP_CHECK_RETURN(hipMemset(new_max1, 0, 1*sizeof(float)));
 //			kPreconditionOptimizerStatic8bit1State<T, OPTIMIZER><<<dim3(num_blocks), dim3(256), 0, 0>>>(p, g, state1, unorm, beta1, beta2, eps, step, quantiles1, max1, new_max1, weight_decay, gnorm_scale, n);
-//			CUDA_CHECK_RETURN(hipPeekAtLastError());
+//			HIP_CHECK_RETURN(hipPeekAtLastError());
 //			kOptimizerStatic8bit1State<T, OPTIMIZER><<<dim3(num_blocks), dim3(1024), 0, 0>>>(p, g, state1, unorm, max_unorm, param_norm, beta1, beta2, eps, step, lr,
 //																														quantiles1, max1, new_max1, weight_decay, gnorm_scale, n);
-//			CUDA_CHECK_RETURN(hipPeekAtLastError());
+//			HIP_CHECK_RETURN(hipPeekAtLastError());
 //			break;
 //    case LION:
 //      // in lion, the momentum update happens after the parameter update
 //      kOptimizerStatic8bit1State<T, OPTIMIZER><<<dim3(num_blocks), dim3(1024), 0, 0>>>(p, g, state1, unorm, max_unorm, param_norm, beta1, beta2, eps, step, lr,
 //                                                            quantiles1, max1, new_max1, weight_decay, gnorm_scale, n);
-//      CUDA_CHECK_RETURN(hipPeekAtLastError());
+//      HIP_CHECK_RETURN(hipPeekAtLastError());
 //
-//      CUDA_CHECK_RETURN(hipMemset(new_max1, 0, 1*sizeof(float)));
+//      HIP_CHECK_RETURN(hipMemset(new_max1, 0, 1*sizeof(float)));
 //      kPreconditionOptimizerStatic8bit1State<T, OPTIMIZER><<<dim3(num_blocks), dim3(256), 0, 0>>>(p, g, state1, unorm, beta1, beta2, eps, step, quantiles1, max1, new_max1, weight_decay, gnorm_scale, n);
-//      CUDA_CHECK_RETURN(hipPeekAtLastError());
+//      HIP_CHECK_RETURN(hipPeekAtLastError());
 //      break;
 //		default:
 //			break;
@@ -216,7 +216,7 @@ void histogramScatterAdd2D(float* histogram, int *index1, int *index2, float *sr
 //			num_blocks = n % BLOCKSIZE_2STATE == 0 ? num_blocks : num_blocks + 1;
 //			kOptimizerStatic8bit2StateBlockwise<T, OPTIMIZER, BLOCKSIZE_2STATE, NUM_2STATE><<<dim3(num_blocks), dim3(BLOCKSIZE_2STATE/NUM_2STATE), 0, 0>>>(p, g, state1, state2, beta1, beta2, eps, step, lr,
 //																														quantiles1, quantiles2, absmax1, absmax2, weight_decay, gnorm_scale, skip_zeros, n);
-//			CUDA_CHECK_RETURN(hipPeekAtLastError());
+//			HIP_CHECK_RETURN(hipPeekAtLastError());
 //		break;
 //		case MOMENTUM:
 //		case RMSPROP:
@@ -226,7 +226,7 @@ void histogramScatterAdd2D(float* histogram, int *index1, int *index2, float *sr
 //			num_blocks = n % BLOCKSIZE_1STATE == 0 ? num_blocks : num_blocks + 1;
 //			kOptimizerStatic8bit1StateBlockwise<T, OPTIMIZER, BLOCKSIZE_1STATE, NUM_1STATE><<<dim3(num_blocks), dim3(BLOCKSIZE_1STATE/NUM_1STATE), 0, 0>>>(p, g, state1, beta1, beta2, eps, step, lr,
 //																														quantiles1, absmax1, weight_decay, gnorm_scale, skip_zeros, n);
-//			CUDA_CHECK_RETURN(hipPeekAtLastError());
+//			HIP_CHECK_RETURN(hipPeekAtLastError());
 //		break;
 //	}
 //}
@@ -237,9 +237,9 @@ void histogramScatterAdd2D(float* histogram, int *index1, int *index2, float *sr
 //{
 //  int num_blocks = n/2048;
 //  num_blocks = n % 2048 == 0 ? num_blocks : num_blocks + 1;
-//	CUDA_CHECK_RETURN(hipMemset(&gnorm_vec[step % 100], 0, 1*sizeof(float)));
+//	HIP_CHECK_RETURN(hipMemset(&gnorm_vec[step % 100], 0, 1*sizeof(float)));
 //  kPercentileClipping<T, 2048, 4><<<dim3(num_blocks), dim3(512), 0, 0>>>(g, gnorm_vec, step, n);
-//  CUDA_CHECK_RETURN(hipPeekAtLastError());
+//  HIP_CHECK_RETURN(hipPeekAtLastError());
 //}
 
 // AVOID AREA BELOW 
@@ -503,7 +503,7 @@ void histogramScatterAdd2D(float* histogram, int *index1, int *index2, float *sr
 //  num_blocks = num_blocks*(tileCols/32);
 //  assert(threads <= tilesize);
 //  kdequant_mm_int32_fp16<4, 128, 512><<<dim3(num_blocks), dim3(threads), 0, 0>>>(A, rowStats, colStats, out, newRowStats, newcolStats, bias, numRows, numCols, tileCols, n);
-//  CUDA_CHECK_RETURN(hipPeekAtLastError());
+//  HIP_CHECK_RETURN(hipPeekAtLastError());
 //
 //}
 //#define STATS_THREADS 64
@@ -525,7 +525,7 @@ void histogramScatterAdd2D(float* histogram, int *index1, int *index2, float *sr
 //
 //  else if(nnz_threshold != 0.0)
 //    kgetColRowStats<half, STATS_THREADS, STATS_ITEMS, STATS_ROWS, STATS_THREADS*STATS_ITEMS, 1><<<dim3(num_blocks), dim3(STATS_THREADS), 0, 0>>>(A, rowStats, colStats, nnz_count_row, nnz_threshold, rows, cols, tiledRows, tiledCols);
-//  CUDA_CHECK_RETURN(hipPeekAtLastError());
+//  HIP_CHECK_RETURN(hipPeekAtLastError());
 //}
 //
 //void doubleRowColQuant(half * A, float *rowStats, float *colStats, char *out_col_normed, char *out_row_normed, int *rowidx, int *colidx, half *val, int *nnz_block_ptr, float threshold, int rows, int cols)
@@ -548,7 +548,7 @@ void histogramScatterAdd2D(float* histogram, int *index1, int *index2, float *sr
 //
 //  else
 //    kDoubleRowColQuant<64, 4, 16, 64*4, 0><<<dim3(num_blocks), dim3(threads), 0, 0>>>(A, rowStats, colStats, out_col_normed, out_row_normed, rowidx, colidx, val, nnz_block_ptr, threshold, rows, cols, tiledCols);
-//  CUDA_CHECK_RETURN(hipPeekAtLastError());
+//  HIP_CHECK_RETURN(hipPeekAtLastError());
 //}
 //
 //template <int FORMAT, int TRANSPOSE> void transformRowToFormat(char * A, char *out, int rows, int cols)
@@ -592,7 +592,7 @@ void histogramScatterAdd2D(float* histogram, int *index1, int *index2, float *sr
 //    }
 //  }
 //  kTransformRowToFormat<256, 8, 32, 32*8, TRANSPOSE, FORMAT><<<dim3(num_blocks), dim3(threads), 0, 0>>>(A, out, rows, cols, tiledCols, outRows, outCols);
-//  CUDA_CHECK_RETURN(hipPeekAtLastError());
+//  HIP_CHECK_RETURN(hipPeekAtLastError());
 //
 //}
 //void spmm_coo(hipsparseHandle_t handle, int *A_rowidx, int *A_colidx, half *A_vals, int A_nnz, int A_rows, int A_cols, int B_cols, int ldb, half *B, int ldc, half* C, bool transposed_B)
@@ -634,7 +634,7 @@ void histogramScatterAdd2D(float* histogram, int *index1, int *index2, float *sr
 //                                 transposed_B ? HIPSPARSE_OPERATION_TRANSPOSE : HIPSPARSE_OPERATION_NON_TRANSPOSE,
 //                                 &alpha, descA, descB, &beta, descC, HIP_R_32F,
 //                                 HIPSPARSE_SPMM_ALG_DEFAULT, &bufferSize) );
-//    CUDA_CHECK_RETURN( hipMalloc(&dBuffer, bufferSize) );
+//    HIP_CHECK_RETURN( hipMalloc(&dBuffer, bufferSize) );
 //    // execute SpMM
 //    CHECK_CUSPARSE( hipsparseSpMM(handle,
 //
@@ -647,14 +647,14 @@ void histogramScatterAdd2D(float* histogram, int *index1, int *index2, float *sr
 //
 //    CHECK_CUSPARSE( hipsparseDestroyDnMat(descB) );
 //    CHECK_CUSPARSE( hipsparseDestroyDnMat(descC) );
-//    CUDA_CHECK_RETURN( hipFree(dBuffer) );
+//    HIP_CHECK_RETURN( hipFree(dBuffer) );
 //#endif
 //}
 //template <typename T, int BITS> void spmm_coo_very_sparse_naive(int *max_count, int *max_idx, int *offset_rowidx, int *rowidx, int *colidx, half *values, T *B, half *out, float *dequant_stats, int nnz_rows, int nnz, int rowsA, int rowsB, int colsB)
 //{
 //
 //  kspmm_coo_very_sparse_naive<T, 8, BITS><<<dim3(nnz_rows), dim3(256), 0, 0>>>(max_count, max_idx, offset_rowidx, rowidx, colidx, values, B, out, dequant_stats, nnz, rowsA, rowsB, colsB);
-//  CUDA_CHECK_RETURN(hipPeekAtLastError());
+//  HIP_CHECK_RETURN(hipPeekAtLastError());
 //
 //}
 //
@@ -677,7 +677,7 @@ void histogramScatterAdd2D(float* histogram, int *index1, int *index2, float *sr
 //      tiledRows = fill_up_to_nearest_multiple(rows, 32);
 //	}
 //  kExtractOutliers<FORMAT><<<dim3(num_blocks), dim3(threads), 0, 0>>>(A, idx, out, idx_size, rows, cols, tiledRows, tiledCols);
-//  CUDA_CHECK_RETURN(hipPeekAtLastError());
+//  HIP_CHECK_RETURN(hipPeekAtLastError());
 //
 //}
 //
@@ -734,7 +734,7 @@ void histogramScatterAdd2D(float* histogram, int *index1, int *index2, float *sr
 //	int num_blocks = (m+3)/4;
 //
 //  kgemm_4bit_inference_naive<T, 128, BITS><<< dim3(num_blocks), dim3(128), 0, 0 >>>(m,  n,  k, A,  B, absmax, datatype, out, lda, ldb, ldc, blocksize);
-//  CUDA_CHECK_RETURN(hipPeekAtLastError());
+//  HIP_CHECK_RETURN(hipPeekAtLastError());
 //}
 //
 template <typename T, int FUNC> void func(T *A, T *B, T value, long n)
@@ -743,8 +743,8 @@ template <typename T, int FUNC> void func(T *A, T *B, T value, long n)
   int blocks = n/threads;
   blocks = n % threads == 0 ? blocks : blocks + 1;
   blocks = blocks > 65535 ? 65535 : blocks;
-  kfunc<T, FUNC><<<dim3(blocks), dim3(512), 0, 0>>>(A, B, value, n);
-  CUDA_CHECK_RETURN(hipPeekAtLastError());
+  kfunc<T, FUNC><<<dim3(blocks), dim3(512),0, 0>>>(A, B, value, n);
+  HIP_CHECK_RETURN(hipPeekAtLastError());
 }
 
 //==============================================================

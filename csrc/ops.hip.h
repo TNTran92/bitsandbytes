@@ -27,7 +27,7 @@
 
 
 
-#define CUDA_CHECK_RETURN(value) {                      \
+#define HIP_CHECK_RETURN(value) {                      \
   hipError_t _m_cudaStat = value;                    \
   if (_m_cudaStat != hipSuccess) {                   \
     fprintf(stderr, "Error %s at line %d in file %s\n",         \
