@@ -298,7 +298,7 @@ void histogramScatterAdd2D(float* histogram, int *index1, int *index2, float *sr
 //}
 // AVOID AREA ABOVE
 
-    return (v + d - 1) / d * d;
+//    return (v + d - 1) / d * d;
 //int roundoff(int v, int d) {
 //}
 //
@@ -412,10 +412,10 @@ void histogramScatterAdd2D(float* histogram, int *index1, int *index2, float *sr
 //  if (A_desc) checkCublasStatus(hipblasLtMatrixLayoutDestroy(A_desc));
 //  if (out_desc) checkCublasStatus(hipblasLtMatrixLayoutDestroy(out_desc));
 //  if (A2Out_desc) checkCublasStatus(hipblasLtMatrixTransformDescDestroy(A2Out_desc));
-#endif
-}
-template void transform<int8_t, ROW, COL, false, 8>(hipblasLtHandle_t ltHandle, int8_t *A, int8_t *out, int dim1, int dim2);
-template void transform<int8_t, ROW, ROW, false, 8>(hipblasLtHandle_t ltHandle, int8_t *A, int8_t *out, int dim1, int dim2);
+//#endif
+//}
+//template void transform<int8_t, ROW, COL, false, 8>(hipblasLtHandle_t ltHandle, int8_t *A, int8_t *out, int dim1, int dim2);
+//template void transform<int8_t, ROW, ROW, false, 8>(hipblasLtHandle_t ltHandle, int8_t *A, int8_t *out, int dim1, int dim2);
 //
 //template void transform<int8_t, ROW, COL32, false, 8>(hipblasLtHandle_t ltHandle, int8_t *A, int8_t *out, int dim1, int dim2);
 //template void transform<int32_t, ROW, COL32, false, 32>(hipblasLtHandle_t ltHandle, int32_t *A, int32_t *out, int dim1, int dim2);
@@ -483,10 +483,10 @@ template void transform<int8_t, ROW, ROW, false, 8>(hipblasLtHandle_t ltHandle, 
 //      printf("error detected");
 //
 //    return has_error;
-#endif // NO_CUBLASLT
-}
-int fill_up_to_nearest_multiple(int value, int multiple)
-{
+//#endif // NO_CUBLASLT
+//}
+//int fill_up_to_nearest_multiple(int value, int multiple)
+//{
 //
 //  return value + (value % multiple == 0 ? 0 : (multiple - (value % multiple)));
 //}
@@ -737,15 +737,15 @@ int fill_up_to_nearest_multiple(int value, int multiple)
 //  CUDA_CHECK_RETURN(hipPeekAtLastError());
 //}
 //
-//template <typename T, int FUNC> void func(T *A, T *B, T value, long n)
-//{
-//  int threads = 512;
-//  int blocks = n/threads;
-//  blocks = n % threads == 0 ? blocks : blocks + 1;
-//  blocks = blocks > 65535 ? 65535 : blocks;
-//  kfunc<T, FUNC><<<blocks, 512>>>(A, B, value, n);
-//  CUDA_CHECK_RETURN(hipPeekAtLastError());
-//}
+template <typename T, int FUNC> void func(T *A, T *B, T value, long n)
+{
+  int threads = 512;
+  int blocks = n/threads;
+  blocks = n % threads == 0 ? blocks : blocks + 1;
+  blocks = blocks > 65535 ? 65535 : blocks;
+  kfunc<T, FUNC><<<blocks, 512>>>(A, B, value, n);
+  CUDA_CHECK_RETURN(hipPeekAtLastError());
+}
 
 //==============================================================
 //                   TEMPLATE DEFINITIONS
@@ -756,115 +756,116 @@ template void func<unsigned char, FILL>(unsigned char *A, unsigned char *B, unsi
 template void func<float, ARANGE>(float *A, float *B, float value, long n);
 template void func<float, _MUL>(float *A, float *B, float value, long n);
 
-template void gemm_4bit_inference<half>(int m, int n, int k, half * A,  unsigned char* B,  float *absmax, half * out,  int lda, int ldb, int ldc, int blocksize);
-template void gemm_4bit_inference_naive<half, 16>(int m, int n, int k, half * A,  unsigned char* B,  float *absmax, float *datatype, half * out,  int lda, int ldb, int ldc, int blocksize);
-template void gemm_4bit_inference_naive<hip_bfloat16, 16>(int m, int n, int k, hip_bfloat16 * A,  unsigned char* B,  float *absmax, float *datatype, hip_bfloat16 * out,  int lda, int ldb, int ldc, int blocksize);
-template void gemm_4bit_inference_naive<float, 32>(int m, int n, int k, float * A,  unsigned char* B,  float *absmax, float *datatype, float * out,  int lda, int ldb, int ldc, int blocksize);
-
-//template void gemm_host<float>(int m, int n, int k, float * A,  float* B,  float * out,  int lda, int ldb, int ldc, int bits);
-template void gemm_host<half>(int m, int n, int k, half * A,  half* B,  half * out,  int lda, int ldb, int ldc, int bits);
-template void extractOutliers<COL_TURING>(char * A, int *idx, char *out, int idx_size, int rows, int cols);
-template void extractOutliers<COL_AMPERE>(char * A, int *idx, char *out, int idx_size, int rows, int cols);
-
-template void spmm_coo_very_sparse_naive<half, 16>(int *max_count, int *max_idx, int *offset_rowidx, int *rowidx, int *colidx, half *values, half *B, half *out, float *dequant_stats, int nnz_rows, int nnz, int rowsA, int rowsB, int colsB);
-template void spmm_coo_very_sparse_naive<signed char, 8>(int *max_count, int *max_idx, int *offset_rowidx, int *rowidx, int *colidx, half *values, signed char *B, half *out, float *dequant_stats, int nnz_rows, int nnz, int rowsA, int rowsB, int colsB);
-
-template int igemmlt<COL_TURING, 32, 0>(hipblasLtHandle_t ltHandle, int m, int n, int k, const int8_t *A, const int8_t *B, void *C, float *row_scale, int lda, int ldb, int ldc);
-template int igemmlt<COL_TURING, 8, 0>(hipblasLtHandle_t ltHandle, int m, int n, int k, const int8_t *A, const int8_t *B, void *C, float *row_scale, int lda, int ldb, int ldc);
-template int igemmlt<COL_TURING, 8, 1>(hipblasLtHandle_t ltHandle, int m, int n, int k, const int8_t *A, const int8_t *B, void *C, float *row_scale, int lda, int ldb, int ldc);
-template int igemmlt<COL_AMPERE, 32, 0>(hipblasLtHandle_t ltHandle, int m, int n, int k, const int8_t *A, const int8_t *B, void *C, float *row_scale, int lda, int ldb, int ldc);
-template int igemmlt<COL_AMPERE, 8, 0>(hipblasLtHandle_t ltHandle, int m, int n, int k, const int8_t *A, const int8_t *B, void *C, float *row_scale, int lda, int ldb, int ldc);
-template int igemmlt<COL_AMPERE, 8, 1>(hipblasLtHandle_t ltHandle, int m, int n, int k, const int8_t *A, const int8_t *B, void *C, float *row_scale, int lda, int ldb, int ldc);
-
-template void transformRowToFormat<COL32, 0>(char * A, char *out, int rows, int cols);
-template void transformRowToFormat<COL32, 1>(char * A, char *out, int rows, int cols);
-template void transformRowToFormat<COL_TURING, 0>(char * A, char *out, int rows, int cols);
-template void transformRowToFormat<COL_TURING, 1>(char * A, char *out, int rows, int cols);
-template void transformRowToFormat<COL_AMPERE, 0>(char * A, char *out, int rows, int cols);
-template void transformRowToFormat<COL_AMPERE, 1>(char * A, char *out, int rows, int cols);
-
-template void estimateQuantiles(half *A, float *code, float offset, int n);
-template void estimateQuantiles(float *A, float *code, float offset, int n);
-
-template void quantizeBlockwise<half, 1, General8bit>(float * code, half *A, float *absmax, unsigned char *out, float* rand, int rand_offset, int blocksize, const int n);
-template void quantizeBlockwise<half, 0, General8bit>(float * code, half *A, float *absmax, unsigned char *out, float* rand, int rand_offset, int blocksize, const int n);
-template void quantizeBlockwise<half, 0, FP4>(float * code, half *A, float *absmax, unsigned char *out, float* rand, int rand_offset, int blocksize, const int n);
-template void quantizeBlockwise<half, 0, NF4>(float * code, half *A, float *absmax, unsigned char *out, float* rand, int rand_offset, int blocksize, const int n);
-template void quantizeBlockwise<float, 1, General8bit>(float * code, float *A, float *absmax, unsigned char *out, float* rand, int rand_offset, int blocksize, const int n);
-template void quantizeBlockwise<float, 0, General8bit>(float * code, float *A, float *absmax, unsigned char *out, float* rand, int rand_offset, int blocksize, const int n);
-template void quantizeBlockwise<float, 0, FP4>(float * code, float *A, float *absmax, unsigned char *out, float* rand, int rand_offset, int blocksize, const int n);
-template void quantizeBlockwise<float, 0, NF4>(float * code, float *A, float *absmax, unsigned char *out, float* rand, int rand_offset, int blocksize, const int n);
-template void quantizeBlockwise<hip_bfloat16, 1, General8bit>(float * code, hip_bfloat16 *A, float *absmax, unsigned char *out, float* rand, int rand_offset, int blocksize, const int n);
-template void quantizeBlockwise<hip_bfloat16, 0, General8bit>(float * code, hip_bfloat16 *A, float *absmax, unsigned char *out, float* rand, int rand_offset, int blocksize, const int n);
-template void quantizeBlockwise<hip_bfloat16, 0, FP4>(float * code, hip_bfloat16 *A, float *absmax, unsigned char *out, float* rand, int rand_offset, int blocksize, const int n);
-template void quantizeBlockwise<hip_bfloat16, 0, NF4>(float * code, hip_bfloat16 *A, float *absmax, unsigned char *out, float* rand, int rand_offset, int blocksize, const int n);
-
-template void dequantizeBlockwise<float, General8bit>(float *code, unsigned char *A, float *absmax, float *out, int blocksize, const int n);
-template void dequantizeBlockwise<float, FP4>(float *code, unsigned char *A, float *absmax, float *out, int blocksize, const int n);
-template void dequantizeBlockwise<float, NF4>(float *code, unsigned char *A, float *absmax, float *out, int blocksize, const int n);
-template void dequantizeBlockwise<half, General8bit>(float *code, unsigned char *A, float *absmax, half *out, int blocksize, const int n);
-template void dequantizeBlockwise<half, FP4>(float *code, unsigned char *A, float *absmax, half *out, int blocksize, const int n);
-template void dequantizeBlockwise<half, NF4>(float *code, unsigned char *A, float *absmax, half *out, int blocksize, const int n);
-template void dequantizeBlockwise<hip_bfloat16, General8bit>(float *code, unsigned char *A, float *absmax, hip_bfloat16 *out, int blocksize, const int n);
-template void dequantizeBlockwise<hip_bfloat16, FP4>(float *code, unsigned char *A, float *absmax, hip_bfloat16 *out, int blocksize, const int n);
-template void dequantizeBlockwise<hip_bfloat16, NF4>(float *code, unsigned char *A, float *absmax, hip_bfloat16 *out, int blocksize, const int n);
-
-#define MAKE_optimizer32bit(name, gtype) \
-template void optimizer32bit<gtype, name>(gtype* g, gtype* p, \
-                float* state1, float* state2, float* unorm, float max_unorm, float param_norm, \
-                const float beta1, const float beta2, const float eps, const float weight_decay, \
-                const int step, const float lr, const float gnorm_scale, const bool skip_zeros, const int n);
-
-MAKE_optimizer32bit(ADAM, half)
-MAKE_optimizer32bit(ADAM, float)
-MAKE_optimizer32bit(ADAM, hip_bfloat16)
-MAKE_optimizer32bit(MOMENTUM, half)
-MAKE_optimizer32bit(MOMENTUM, float)
-MAKE_optimizer32bit(RMSPROP, half)
-MAKE_optimizer32bit(RMSPROP, float)
-MAKE_optimizer32bit(LION, half)
-MAKE_optimizer32bit(LION, float)
-MAKE_optimizer32bit(LION, hip_bfloat16)
-MAKE_optimizer32bit(ADAGRAD, half)
-MAKE_optimizer32bit(ADAGRAD, float)
-
-#define MAKE_optimizerStatic8bit(name, gtype) \
-template void optimizerStatic8bit<gtype, name>(gtype* p, gtype* g, unsigned char* state1, unsigned char* state2, \
-                float *unorm, float max_unorm, float param_norm, \
-                float beta1, float beta2, \
-                float eps, int step, float lr,  \
-                float* quantiles1, float* quantiles2, \
-                float* max1, float* max2, float* new_max1, float* new_max2, \
-                float weight_decay, \
-                const float gnorm_scale, int n); \
-
-MAKE_optimizerStatic8bit(ADAM, half)
-MAKE_optimizerStatic8bit(ADAM, float)
-MAKE_optimizerStatic8bit(MOMENTUM, half)
-MAKE_optimizerStatic8bit(MOMENTUM, float)
-MAKE_optimizerStatic8bit(RMSPROP, half)
-MAKE_optimizerStatic8bit(RMSPROP, float)
-MAKE_optimizerStatic8bit(LION, half)
-MAKE_optimizerStatic8bit(LION, float)
-
-#define MAKE_optimizerStatic8bitBlockwise(gtype, optim_name) \
-template void optimizerStatic8bitBlockwise<gtype, optim_name>(gtype* p, gtype* g, \
-                unsigned char* state1, unsigned char* state2, float beta1, float beta2, float eps, int step, float lr,  \
-                float* quantiles1, float* quantiles2, float* absmax1, float* absmax2, float weight_decay, const float gnorm_scale, bool skip_zeros, int n); \
-
-MAKE_optimizerStatic8bitBlockwise(half, ADAM);
-MAKE_optimizerStatic8bitBlockwise(float, ADAM);
-MAKE_optimizerStatic8bitBlockwise(half, MOMENTUM);
-MAKE_optimizerStatic8bitBlockwise(float, MOMENTUM);
-MAKE_optimizerStatic8bitBlockwise(half, RMSPROP);
-MAKE_optimizerStatic8bitBlockwise(float, RMSPROP);
-MAKE_optimizerStatic8bitBlockwise(half, LION);
-MAKE_optimizerStatic8bitBlockwise(float, LION);
-MAKE_optimizerStatic8bitBlockwise(hip_bfloat16, LION);
-MAKE_optimizerStatic8bitBlockwise(half, ADAGRAD);
-MAKE_optimizerStatic8bitBlockwise(float, ADAGRAD);
-
-template void percentileClipping(float * g, float *gnorm_vec, int step, const int n);
-template void percentileClipping(half * g, float *gnorm_vec, int step, const int n);
-
-MAKE_optimizerStatic8bitBlockwise(hip_bfloat16, ADAM);
+//template void gemm_4bit_inference<half>(int m, int n, int k, half * A,  unsigned char* B,  float *absmax, half * out,  int lda, int ldb, int ldc, int blocksize);
+//template void gemm_4bit_inference_naive<half, 16>(int m, int n, int k, half * A,  unsigned char* B,  float *absmax, float *datatype, half * out,  int lda, int ldb, int ldc, int blocksize);
+//template void gemm_4bit_inference_naive<hip_bfloat16, 16>(int m, int n, int k, hip_bfloat16 * A,  unsigned char* B,  float *absmax, float *datatype, hip_bfloat16 * out,  int lda, int ldb, int ldc, int blocksize);
+//template void gemm_4bit_inference_naive<float, 32>(int m, int n, int k, float * A,  unsigned char* B,  float *absmax, float *datatype, float * out,  int lda, int ldb, int ldc, int blocksize);
+//
+////template void gemm_host<float>(int m, int n, int k, float * A,  float* B,  float * out,  int lda, int ldb, int ldc, int bits);
+//template void gemm_host<half>(int m, int n, int k, half * A,  half* B,  half * out,  int lda, int ldb, int ldc, int bits);
+//template void extractOutliers<COL_TURING>(char * A, int *idx, char *out, int idx_size, int rows, int cols);
+//template void extractOutliers<COL_AMPERE>(char * A, int *idx, char *out, int idx_size, int rows, int cols);
+//
+//template void spmm_coo_very_sparse_naive<half, 16>(int *max_count, int *max_idx, int *offset_rowidx, int *rowidx, int *colidx, half *values, half *B, half *out, float *dequant_stats, int nnz_rows, int nnz, int rowsA, int rowsB, int colsB);
+//template void spmm_coo_very_sparse_naive<signed char, 8>(int *max_count, int *max_idx, int *offset_rowidx, int *rowidx, int *colidx, half *values, signed char *B, half *out, float *dequant_stats, int nnz_rows, int nnz, int rowsA, int rowsB, int colsB);
+//
+//template int igemmlt<COL_TURING, 32, 0>(hipblasLtHandle_t ltHandle, int m, int n, int k, const int8_t *A, const int8_t *B, void *C, float *row_scale, int lda, int ldb, int ldc);
+//template int igemmlt<COL_TURING, 8, 0>(hipblasLtHandle_t ltHandle, int m, int n, int k, const int8_t *A, const int8_t *B, void *C, float *row_scale, int lda, int ldb, int ldc);
+//template int igemmlt<COL_TURING, 8, 1>(hipblasLtHandle_t ltHandle, int m, int n, int k, const int8_t *A, const int8_t *B, void *C, float *row_scale, int lda, int ldb, int ldc);
+//template int igemmlt<COL_AMPERE, 32, 0>(hipblasLtHandle_t ltHandle, int m, int n, int k, const int8_t *A, const int8_t *B, void *C, float *row_scale, int lda, int ldb, int ldc);
+//template int igemmlt<COL_AMPERE, 8, 0>(hipblasLtHandle_t ltHandle, int m, int n, int k, const int8_t *A, const int8_t *B, void *C, float *row_scale, int lda, int ldb, int ldc);
+//template int igemmlt<COL_AMPERE, 8, 1>(hipblasLtHandle_t ltHandle, int m, int n, int k, const int8_t *A, const int8_t *B, void *C, float *row_scale, int lda, int ldb, int ldc);
+//
+//template void transformRowToFormat<COL32, 0>(char * A, char *out, int rows, int cols);
+//template void transformRowToFormat<COL32, 1>(char * A, char *out, int rows, int cols);
+//template void transformRowToFormat<COL_TURING, 0>(char * A, char *out, int rows, int cols);
+//template void transformRowToFormat<COL_TURING, 1>(char * A, char *out, int rows, int cols);
+//template void transformRowToFormat<COL_AMPERE, 0>(char * A, char *out, int rows, int cols);
+//template void transformRowToFormat<COL_AMPERE, 1>(char * A, char *out, int rows, int cols);
+//
+//template void estimateQuantiles(half *A, float *code, float offset, int n);
+//template void estimateQuantiles(float *A, float *code, float offset, int n);
+//
+//template void quantizeBlockwise<half, 1, General8bit>(float * code, half *A, float *absmax, unsigned char *out, float* rand, int rand_offset, int blocksize, const int n);
+//template void quantizeBlockwise<half, 0, General8bit>(float * code, half *A, float *absmax, unsigned char *out, float* rand, int rand_offset, int blocksize, const int n);
+//template void quantizeBlockwise<half, 0, FP4>(float * code, half *A, float *absmax, unsigned char *out, float* rand, int rand_offset, int blocksize, const int n);
+//template void quantizeBlockwise<half, 0, NF4>(float * code, half *A, float *absmax, unsigned char *out, float* rand, int rand_offset, int blocksize, const int n);
+//template void quantizeBlockwise<float, 1, General8bit>(float * code, float *A, float *absmax, unsigned char *out, float* rand, int rand_offset, int blocksize, const int n);
+//template void quantizeBlockwise<float, 0, General8bit>(float * code, float *A, float *absmax, unsigned char *out, float* rand, int rand_offset, int blocksize, const int n);
+//template void quantizeBlockwise<float, 0, FP4>(float * code, float *A, float *absmax, unsigned char *out, float* rand, int rand_offset, int blocksize, const int n);
+//template void quantizeBlockwise<float, 0, NF4>(float * code, float *A, float *absmax, unsigned char *out, float* rand, int rand_offset, int blocksize, const int n);
+//template void quantizeBlockwise<hip_bfloat16, 1, General8bit>(float * code, hip_bfloat16 *A, float *absmax, unsigned char *out, float* rand, int rand_offset, int blocksize, const int n);
+//template void quantizeBlockwise<hip_bfloat16, 0, General8bit>(float * code, hip_bfloat16 *A, float *absmax, unsigned char *out, float* rand, int rand_offset, int blocksize, const int n);
+//template void quantizeBlockwise<hip_bfloat16, 0, FP4>(float * code, hip_bfloat16 *A, float *absmax, unsigned char *out, float* rand, int rand_offset, int blocksize, const int n);
+//template void quantizeBlockwise<hip_bfloat16, 0, NF4>(float * code, hip_bfloat16 *A, float *absmax, unsigned char *out, float* rand, int rand_offset, int blocksize, const int n);
+//
+//template void dequantizeBlockwise<float, General8bit>(float *code, unsigned char *A, float *absmax, float *out, int blocksize, const int n);
+//template void dequantizeBlockwise<float, FP4>(float *code, unsigned char *A, float *absmax, float *out, int blocksize, const int n);
+//template void dequantizeBlockwise<float, NF4>(float *code, unsigned char *A, float *absmax, float *out, int blocksize, const int n);
+//template void dequantizeBlockwise<half, General8bit>(float *code, unsigned char *A, float *absmax, half *out, int blocksize, const int n);
+//template void dequantizeBlockwise<half, FP4>(float *code, unsigned char *A, float *absmax, half *out, int blocksize, const int n);
+//template void dequantizeBlockwise<half, NF4>(float *code, unsigned char *A, float *absmax, half *out, int blocksize, const int n);
+//template void dequantizeBlockwise<hip_bfloat16, General8bit>(float *code, unsigned char *A, float *absmax, hip_bfloat16 *out, int blocksize, const int n);
+//template void dequantizeBlockwise<hip_bfloat16, FP4>(float *code, unsigned char *A, float *absmax, hip_bfloat16 *out, int blocksize, const int n);
+//template void dequantizeBlockwise<hip_bfloat16, NF4>(float *code, unsigned char *A, float *absmax, hip_bfloat16 *out, int blocksize, const int n);
+//
+//#define MAKE_optimizer32bit(name, gtype) \
+//template void optimizer32bit<gtype, name>(gtype* g, gtype* p, \
+//                float* state1, float* state2, float* unorm, float max_unorm, float param_norm, \
+//                const float beta1, const float beta2, const float eps, const float weight_decay, \
+//                const int step, const float lr, const float gnorm_scale, const bool skip_zeros, const int n);
+//
+//MAKE_optimizer32bit(ADAM, half)
+//MAKE_optimizer32bit(ADAM, float)
+//MAKE_optimizer32bit(ADAM, hip_bfloat16)
+//MAKE_optimizer32bit(MOMENTUM, half)
+//MAKE_optimizer32bit(MOMENTUM, float)
+//MAKE_optimizer32bit(RMSPROP, half)
+//MAKE_optimizer32bit(RMSPROP, float)
+//MAKE_optimizer32bit(LION, half)
+//MAKE_optimizer32bit(LION, float)
+//MAKE_optimizer32bit(LION, hip_bfloat16)
+//MAKE_optimizer32bit(ADAGRAD, half)
+//MAKE_optimizer32bit(ADAGRAD, float)
+//
+//#define MAKE_optimizerStatic8bit(name, gtype) \
+//template void optimizerStatic8bit<gtype, name>(gtype* p, gtype* g, unsigned char* state1, unsigned char* state2, \
+//                float *unorm, float max_unorm, float param_norm, \
+//                float beta1, float beta2, \
+//                float eps, int step, float lr,  \
+//                float* quantiles1, float* quantiles2, \
+//                float* max1, float* max2, float* new_max1, float* new_max2, \
+//                float weight_decay, \
+//                const float gnorm_scale, int n); \
+//
+//MAKE_optimizerStatic8bit(ADAM, half)
+//MAKE_optimizerStatic8bit(ADAM, float)
+//MAKE_optimizerStatic8bit(MOMENTUM, half)
+//MAKE_optimizerStatic8bit(MOMENTUM, float)
+//MAKE_optimizerStatic8bit(RMSPROP, half)
+//MAKE_optimizerStatic8bit(RMSPROP, float)
+//MAKE_optimizerStatic8bit(LION, half)
+//MAKE_optimizerStatic8bit(LION, float)
+//
+//#define MAKE_optimizerStatic8bitBlockwise(gtype, optim_name) \
+//template void optimizerStatic8bitBlockwise<gtype, optim_name>(gtype* p, gtype* g, \
+//                unsigned char* state1, unsigned char* state2, float beta1, float beta2, float eps, int step, float lr,  \
+//                float* quantiles1, float* quantiles2, float* absmax1, float* absmax2, float weight_decay, const float gnorm_scale, bool skip_zeros, int n); \
+//
+//MAKE_optimizerStatic8bitBlockwise(half, ADAM);
+//MAKE_optimizerStatic8bitBlockwise(float, ADAM);
+//MAKE_optimizerStatic8bitBlockwise(half, MOMENTUM);
+//MAKE_optimizerStatic8bitBlockwise(float, MOMENTUM);
+//MAKE_optimizerStatic8bitBlockwise(half, RMSPROP);
+//MAKE_optimizerStatic8bitBlockwise(float, RMSPROP);
+//MAKE_optimizerStatic8bitBlockwise(half, LION);
+//MAKE_optimizerStatic8bitBlockwise(float, LION);
+//MAKE_optimizerStatic8bitBlockwise(hip_bfloat16, LION);
+//MAKE_optimizerStatic8bitBlockwise(half, ADAGRAD);
+//MAKE_optimizerStatic8bitBlockwise(float, ADAGRAD);
+//
+//template void percentileClipping(float * g, float *gnorm_vec, int step, const int n);
+//template void percentileClipping(half * g, float *gnorm_vec, int step, const int n);
+//
+//MAKE_optimizerStatic8bitBlockwise(hip_bfloat16, ADAM);
+//
