@@ -229,7 +229,7 @@ elseif(BUILD_MPS)
     add_custom_target(metallib DEPENDS "bitsandbytes/bitsandbytes.metallib")
 else()
     list(APPEND SRC_FILES ${CUDA_FILES})
-    string(APPEND BNB_OUTPUT_NAME "_rocm602")
+    string(APPEND BNB_OUTPUT_NAME "_cuda110")
     add_compile_definitions(BUILD_HIP)
 endif()
 
@@ -250,7 +250,7 @@ add_library(bitsandbytes SHARED ${SRC_FILES})
 target_include_directories(bitsandbytes PRIVATE ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/include /opt/rocm-6.0.2/include/hipblas /opt/rocm-6.0.2/include/rocblas /opt/rocm-6.0.2/include/hipblaslt /opt/rocm-6.0.2/include/hipsparse /opt/rocm-6.0.2/include/hipcub /opt/rocm-6.0.2/include/rocwmma)
 target_compile_features(bitsandbytes PUBLIC cxx_std_14)
 target_include_directories(bitsandbytes PUBLIC csrc include)
-target_link_libraries(bitsandbytes PUBLIC hip::device roc::hipblas) 
+target_link_libraries(bitsandbytes PUBLIC hip::device roc::rocthrust roc::hipblas roc::hipsparse roc::rocrand roc::rocprim hip::hipcub) 
 
 
 if(BUILD_CUDA)
