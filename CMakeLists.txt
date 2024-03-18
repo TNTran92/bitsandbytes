@@ -229,7 +229,7 @@ elseif(BUILD_MPS)
     add_custom_target(metallib DEPENDS "bitsandbytes/bitsandbytes.metallib")
 else()
     list(APPEND SRC_FILES ${CUDA_FILES})
-    string(APPEND BNB_OUTPUT_NAME "_cuda110")
+    string(APPEND BNB_OUTPUT_NAME "_cuda110_nocublaslt")
     add_compile_definitions(BUILD_HIP)
 endif()
 

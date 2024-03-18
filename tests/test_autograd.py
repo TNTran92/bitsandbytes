@@ -349,7 +349,13 @@ def test_matmul_4bit(
     quant_type,
 ):
     dimA = (dim2, dim3) if not transpose[0] else (dim3, dim2)
+    print("not transpose[0]")
+    print(not transpose[0])
+    print(f"dimA is: {dimA}")
     dimB = (dim3, dim4) if not transpose[1] else (dim4, dim3)
+    print("not transpose[1]")
+    print(not transpose[1])
+    print(f"dimB is: {dimB}")
     if has_bias == False:
         req_grad = list(req_grad)
         req_grad[2] = False
@@ -357,11 +363,20 @@ def test_matmul_4bit(
     for i in range(3):
         # normal multiply
         if funcs[0] in [torch.mm, torch.matmul]:
+            print(f"req_grad[0] is: {req_grad[0]}")
             A = torch.randn(size=dimA, device="cuda", requires_grad=req_grad[0], dtype=dtype)
+            print(f"tensorA is: {A}")
+            print(f"tensorA's size is: {A.size()}")
+            print(f"req_grad[1] is: {req_grad[1]}")
             B = torch.randn(size=dimB, device="cuda", requires_grad=req_grad[1], dtype=dtype)
+            print(f"tensorB is: {B}")
+            print(f"tensorB's size is: {B.size()}")
+            print(f"req_grad[2] is: {req_grad[2]}")
             target = torch.randn(size=(dim2, dim4), device="cuda", requires_grad=req_grad[1], dtype=dtype)
             bias = None
             bias2 = None
+            print(f"has_bias is: {has_bias}")
+            print(f"dim4 is: {dim4}")
             if has_bias:
                 bias = torch.randn(dim4, device="cuda", dtype=dtype, requires_grad=req_grad[2])
                 bias2 = bias.clone()
@@ -382,9 +397,9 @@ def test_matmul_4bit(
 
             if has_bias:
                 out_torch += bias
-
-            assert out_bnb.dtype == A.dtype, f"bnb matmullt received {A.dtype} but returned {out_bnb.dtype}"
-
+            print(f"out_bnb is: {out_bnb}")
+            assert out_bnb.dtype == c, f"bnb matmullt received {A.dtype} but returned {out_bnb.dtype}"
+            
             n = out_bnb.numel()
             err = torch.abs(out_bnb - out_torch).float().mean().item()
             if n > 0:
