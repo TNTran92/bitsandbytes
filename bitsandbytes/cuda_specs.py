@@ -21,7 +21,10 @@ def get_compute_capabilities() -> List[Tuple[int, int]]:
 
 def get_cuda_version_tuple() -> Tuple[int, int]:
     # https://docs.nvidia.com/cuda/cuda-runtime-api/group__CUDART____VERSION.html#group__CUDART____VERSION
-    major, minor = map(int, torch.version.cuda.split("."))
+    #major, minor = map(int, torch.version.cuda.split("."))
+    #Current ROCM version
+    ROCM_version = '11.0'
+    major, minor = map(int, ROCM_version.split("."))
     return major, minor
 
 
