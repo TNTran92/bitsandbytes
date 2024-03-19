@@ -375,6 +375,8 @@ def test_matmul_4bit(
             target = torch.randn(size=(dim2, dim4), device="cuda", requires_grad=req_grad[1], dtype=dtype)
             bias = None
             bias2 = None
+            print(f"target is: {target}")
+            print(f"target's size is: {target.size()}")
             print(f"has_bias is: {has_bias}")
             print(f"dim4 is: {dim4}")
             if has_bias:
@@ -388,6 +390,10 @@ def test_matmul_4bit(
                 quant_type=quant_type,
             )
 
+            print(f"B2 is: {B2}")
+            print(f"B2's size is: {B2.size()}")
+            print(f"quant_state is: {quant_state}")
+
             if not transpose[0] and transpose[1]:
                 out_torch = funcs[0](A, B.t())
                 out_bnb = funcs[1](A, B2.t(), quant_state, bias=bias2)
@@ -397,7 +403,10 @@ def test_matmul_4bit(
 
             if has_bias:
                 out_torch += bias
+            print(f"out_torch is: {out_torch}")
+            print(f"out_torch size: {out_bnb.size()}")
             print(f"out_bnb is: {out_bnb}")
+            print(f"out_bnb size: {out_bnb.size()}")
             assert out_bnb.dtype == A.dtype, f"bnb matmullt received {A.dtype} but returned {out_bnb.dtype}"
             
             n = out_bnb.numel()
