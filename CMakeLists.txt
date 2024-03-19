@@ -63,8 +63,8 @@ find_package(rocrand REQUIRED)
 
 
 # Search for rocm in common locations
-list(APPEND CMAKE_PREFIX_PATH /opt/rocm/hip /opt/rocm-6.0.2 /opt/rocm)
-list(APPEND HIP_PATH /opt/rocm-6.0.2/llvm/bin/)
+list(APPEND CMAKE_PREFIX_PATH /opt/rocm/hip /opt/rocm /opt/rocm)
+list(APPEND HIP_PATH /opt/rocm/llvm/bin/)
 # Find HIP.
 # The user may override AMDGPU_TARGETS defined in the HIP config file
 # to select the AMDGPU archs to compile for.
@@ -205,7 +205,7 @@ if(BUILD_CUDA)
 
     string(APPEND BNB_OUTPUT_NAME "_cuda${CUDA_VERSION_SHORT}")
     if(NO_CUBLASLT)
-        string(APPEND BNB_OUTPUT_NAME "_nocublaslt")
+        string(APPEND BNB_OUTPUT_NAME "_cuda110_nocublaslt")
     endif()
     add_compile_definitions(BUILD_CUDA)
 elseif(BUILD_MPS)
@@ -247,8 +247,9 @@ endif()
 set_source_files_properties(${CPP_FILES} PROPERTIES LANGUAGE CXX)
 message("Working on: " ${CPP_FILES})
 add_library(bitsandbytes SHARED ${SRC_FILES})
-target_include_directories(bitsandbytes PRIVATE ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/include /opt/rocm-6.0.2/include/hipblas /opt/rocm-6.0.2/include/rocblas /opt/rocm-6.0.2/include/hipblaslt /opt/rocm-6.0.2/include/hipsparse /opt/rocm-6.0.2/include/hipcub /opt/rocm-6.0.2/include/rocwmma)
+target_include_directories(bitsandbytes PRIVATE ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/include /opt/rocm/include/hipblas /opt/rocm/include/rocblas /opt/rocm/include/hipblaslt /opt/rocm/include/hipsparse /opt/rocm/include/hipcub /opt/rocm/include/rocwmma)
 target_compile_features(bitsandbytes PUBLIC cxx_std_14)
+target_compile_definitions(bitsandbytes PUBLIC NO_CUBLASLT)
 target_include_directories(bitsandbytes PUBLIC csrc include)
 target_link_libraries(bitsandbytes PUBLIC hip::device roc::rocthrust roc::hipblas roc::hipsparse roc::rocrand roc::rocprim) 
 
