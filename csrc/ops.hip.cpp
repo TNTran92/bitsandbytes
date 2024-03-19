@@ -372,44 +372,44 @@ template <typename T, int SRC, int TARGET, bool transpose, int DTYPE> void trans
 
 #ifdef NO_CUBLASLT
 #else
-//  hipblasLtOrder_t orderA = get_order<SRC>();
-//  hipblasLtOrder_t orderOut = get_order<TARGET>();
-//  int ldA = get_leading_dim<SRC>(dim1, dim2);
-//  int ldOut = get_leading_dim<TARGET>(dim1, dim2);
-//
-//  hipblasLtMatrixLayout_t A_desc = NULL, out_desc = NULL;
-//  hipblasLtMatrixTransformDesc_t A2Out_desc = NULL;
-//  hipblasOperation_t opTranspose = HIPBLAS_OP_T;
-//  float transformAlpha = 1.0f, transformBeta = 0.0f;
-//
-//
-//  if(DTYPE == 8)
-//  {
-//    checkCublasStatus(hipblasLtMatrixLayoutCreate(&A_desc, HIP_R_8I, dim1, dim2, ldA));
-//    checkCublasStatus(hipblasLtMatrixLayoutCreate(&out_desc, HIP_R_8I, dim1, dim2, ldOut));
-//  }
-//  else if(DTYPE == 32)
-//  {
-//    checkCublasStatus(hipblasLtMatrixLayoutCreate(&A_desc, HIP_R_32I, dim1, dim2, ldA));
-//    checkCublasStatus(hipblasLtMatrixLayoutCreate(&out_desc, HIP_R_32I, dim1, dim2, ldOut));
-//  }
-//  else
-//  {
-//    printf("ERROR WRONG TYPE FOR TRANSFORM: %i\n", DTYPE);
-//  }
-//
-//  checkCublasStatus(cublasLtMatrixLayoutSetAttribute(A_desc, CUBLASLT_MATRIX_LAYOUT_ORDER, &orderA, sizeof(orderA)));
-//  checkCublasStatus(cublasLtMatrixLayoutSetAttribute(out_desc, CUBLASLT_MATRIX_LAYOUT_ORDER, &orderOut, sizeof(orderOut)));
-//
-//  checkCublasStatus(hipblasLtMatrixTransformDescCreate(&A2Out_desc, HIP_R_32F));
-//
-//  if(transpose){ checkCublasStatus(hipblasLtMatrixTransformDescSetAttribute(A2Out_desc, HIPBLASLT_MATRIX_TRANSFORM_DESC_TRANSA, &opTranspose, sizeof(opTranspose))); }
-//
-//  checkCublasStatus(hipblasLtMatrixTransform(ltHandle, A2Out_desc, &transformAlpha, A, A_desc, &transformBeta, NULL, NULL, out, out_desc, 0));
-//
-//  if (A_desc) checkCublasStatus(hipblasLtMatrixLayoutDestroy(A_desc));
-//  if (out_desc) checkCublasStatus(hipblasLtMatrixLayoutDestroy(out_desc));
-//  if (A2Out_desc) checkCublasStatus(hipblasLtMatrixTransformDescDestroy(A2Out_desc));
+  hipblasLtOrder_t orderA = get_order<SRC>();
+  hipblasLtOrder_t orderOut = get_order<TARGET>();
+  int ldA = get_leading_dim<SRC>(dim1, dim2);
+  int ldOut = get_leading_dim<TARGET>(dim1, dim2);
+
+  hipblasLtMatrixLayout_t A_desc = NULL, out_desc = NULL;
+  hipblasLtMatrixTransformDesc_t A2Out_desc = NULL;
+  hipblasOperation_t opTranspose = HIPBLAS_OP_T;
+  float transformAlpha = 1.0f, transformBeta = 0.0f;
+
+
+  if(DTYPE == 8)
+  {
+    checkCublasStatus(hipblasLtMatrixLayoutCreate(&A_desc, HIP_R_8I, dim1, dim2, ldA));
+    checkCublasStatus(hipblasLtMatrixLayoutCreate(&out_desc, HIP_R_8I, dim1, dim2, ldOut));
+  }
+  else if(DTYPE == 32)
+  {
+    checkCublasStatus(hipblasLtMatrixLayoutCreate(&A_desc, HIP_R_32I, dim1, dim2, ldA));
+    checkCublasStatus(hipblasLtMatrixLayoutCreate(&out_desc, HIP_R_32I, dim1, dim2, ldOut));
+  }
+  else
+  {
+    printf("ERROR WRONG TYPE FOR TRANSFORM: %i\n", DTYPE);
+  }
+
+  checkCublasStatus(cublasLtMatrixLayoutSetAttribute(A_desc, CUBLASLT_MATRIX_LAYOUT_ORDER, &orderA, sizeof(orderA)));
+  checkCublasStatus(cublasLtMatrixLayoutSetAttribute(out_desc, CUBLASLT_MATRIX_LAYOUT_ORDER, &orderOut, sizeof(orderOut)));
+
+  checkCublasStatus(hipblasLtMatrixTransformDescCreate(&A2Out_desc, HIP_R_32F));
+
+  if(transpose){ checkCublasStatus(hipblasLtMatrixTransformDescSetAttribute(A2Out_desc, HIPBLASLT_MATRIX_TRANSFORM_DESC_TRANSA, &opTranspose, sizeof(opTranspose))); }
+
+  checkCublasStatus(hipblasLtMatrixTransform(ltHandle, A2Out_desc, &transformAlpha, A, A_desc, &transformBeta, NULL, NULL, out, out_desc, 0));
+
+  if (A_desc) checkCublasStatus(hipblasLtMatrixLayoutDestroy(A_desc));
+  if (out_desc) checkCublasStatus(hipblasLtMatrixLayoutDestroy(out_desc));
+  if (A2Out_desc) checkCublasStatus(hipblasLtMatrixTransformDescDestroy(A2Out_desc));
 #endif
 }
 template void transform<int8_t, ROW, COL, false, 8>(hipblasLtHandle_t ltHandle, int8_t *A, int8_t *out, int dim1, int dim2);
@@ -427,60 +427,60 @@ template <int FORMATB, int DTYPE_OUT, int SCALE_ROWS> int igemmlt(hipblasLtHandl
 #ifdef NO_CUBLASLT
 	return ERR_NOT_IMPLEMENTED;
 #else
-//    int has_error = 0;
-//    hipblasLtMatmulDesc_t matmulDesc = NULL;
-//    hipblasLtMatrixLayout_t Adesc = NULL, Bdesc = NULL, Cdesc = NULL;
-//    hipblasOperation_t opT = HIPBLAS_OP_T;
-//    hipblasLtPointerMode_t alphaVec = HIPBLASLT_POINTER_MODE_ALPHA_DEVICE_VECTOR_BETA_HOST;
-//    hipblasLtOrder_t col32 = HIPBLASLT_ORDER_COL;
-//    hipblasLtOrder_t col_turing = CUBLASLT_ORDER_COL4_4R2_8C;
-//    hipblasLtOrder_t col_ampere = HIPBLASLT_ORDER_COL;
-//
-//    has_error |= checkCublasStatus(hipblasLtMatrixLayoutCreate(&Adesc, HIP_R_8I, m, k, lda));
-//    has_error |= checkCublasStatus(hipblasLtMatrixLayoutCreate(&Bdesc, HIP_R_8I, n, k, ldb));
-//
-//    has_error |= checkCublasStatus(cublasLtMatrixLayoutSetAttribute(Adesc, CUBLASLT_MATRIX_LAYOUT_ORDER, &col32, sizeof(col32)));
-//    if(FORMATB == COL_TURING)
-//      has_error |= checkCublasStatus(cublasLtMatrixLayoutSetAttribute(Bdesc, CUBLASLT_MATRIX_LAYOUT_ORDER, &col_turing, sizeof(col_turing)));
-//    else
-//      has_error |= checkCublasStatus(cublasLtMatrixLayoutSetAttribute(Bdesc, CUBLASLT_MATRIX_LAYOUT_ORDER, &col_ampere, sizeof(col_ampere)));
-//
-//    if(DTYPE_OUT == 32)
-//    {
-//      has_error |= checkCublasStatus(hipblasLtMatmulDescCreate(&matmulDesc, HIPBLAS_COMPUTE_32I, HIP_R_32I));
-//      has_error |= checkCublasStatus(hipblasLtMatmulDescSetAttribute(matmulDesc, HIPBLASLT_MATMUL_DESC_TRANSB, &opT, sizeof(opT)));
-//      has_error |= checkCublasStatus(hipblasLtMatrixLayoutCreate(&Cdesc, HIP_R_32I, m, n, ldc));
-//      has_error |= checkCublasStatus(cublasLtMatrixLayoutSetAttribute(Cdesc, CUBLASLT_MATRIX_LAYOUT_ORDER, &col32, sizeof(col32)));
-//      int alpha = 1, beta = 0;
-//      has_error |= checkCublasStatus(hipblasLtMatmul(ltHandle, matmulDesc,&alpha, A, Adesc, B, Bdesc, &beta, (int32_t*)C, Cdesc, (int32_t*)C, Cdesc, NULL, NULL, 0, 0));
-//    }
-//    else
-//    {
-//      has_error |= checkCublasStatus(hipblasLtMatmulDescCreate(&matmulDesc, HIPBLAS_COMPUTE_32I, HIP_R_32F));
-//      has_error |= checkCublasStatus(hipblasLtMatmulDescSetAttribute(matmulDesc, HIPBLASLT_MATMUL_DESC_TRANSB, &opT, sizeof(opT)));
-//      has_error |= checkCublasStatus(hipblasLtMatrixLayoutCreate(&Cdesc, HIP_R_8I, m, n, ldc));
-//      has_error |= checkCublasStatus(cublasLtMatrixLayoutSetAttribute(Cdesc, CUBLASLT_MATRIX_LAYOUT_ORDER, &col32, sizeof(col32)));
-//      if(!SCALE_ROWS)
-//      {
-//        float alpha = 1.0f, beta = 0.0f;
-//        has_error |= checkCublasStatus(hipblasLtMatmul(ltHandle, matmulDesc,&alpha, A, Adesc, B, Bdesc, &beta, (int8_t*)C, Cdesc, (int8_t*)C, Cdesc, NULL, NULL, 0, 0));
-//      }
-//      else
-//      {
-//        has_error |= checkCublasStatus(hipblasLtMatmulDescSetAttribute(matmulDesc, HIPBLASLT_MATMUL_DESC_POINTER_MODE, &alphaVec, sizeof(alphaVec)));
-//        has_error |= checkCublasStatus(hipblasLtMatmul(ltHandle, matmulDesc, row_scale, A, Adesc, B, Bdesc, NULL, (int8_t*)C, Cdesc, (int8_t*)C, Cdesc, NULL, NULL, 0, 0));
-//      }
-//    }
-//
-//
-//    if (Cdesc) has_error |= checkCublasStatus(hipblasLtMatrixLayoutDestroy(Cdesc));
-//    if (Bdesc) has_error |= checkCublasStatus(hipblasLtMatrixLayoutDestroy(Bdesc));
-//    if (Adesc) has_error |= checkCublasStatus(hipblasLtMatrixLayoutDestroy(Adesc));
-//    if (matmulDesc) has_error |= checkCublasStatus(hipblasLtMatmulDescDestroy(matmulDesc));
-//    if(has_error == 1)
-//      printf("error detected");
-//
-//    return has_error;
+    int has_error = 0;
+    hipblasLtMatmulDesc_t matmulDesc = NULL;
+    hipblasLtMatrixLayout_t Adesc = NULL, Bdesc = NULL, Cdesc = NULL;
+    hipblasOperation_t opT = HIPBLAS_OP_T;
+    hipblasLtPointerMode_t alphaVec = HIPBLASLT_POINTER_MODE_ALPHA_DEVICE_VECTOR_BETA_HOST;
+    hipblasLtOrder_t col32 = HIPBLASLT_ORDER_COL;
+    hipblasLtOrder_t col_turing = CUBLASLT_ORDER_COL4_4R2_8C;
+    hipblasLtOrder_t col_ampere = HIPBLASLT_ORDER_COL;
+
+    has_error |= checkCublasStatus(hipblasLtMatrixLayoutCreate(&Adesc, HIP_R_8I, m, k, lda));
+    has_error |= checkCublasStatus(hipblasLtMatrixLayoutCreate(&Bdesc, HIP_R_8I, n, k, ldb));
+
+    has_error |= checkCublasStatus(cublasLtMatrixLayoutSetAttribute(Adesc, CUBLASLT_MATRIX_LAYOUT_ORDER, &col32, sizeof(col32)));
+    if(FORMATB == COL_TURING)
+      has_error |= checkCublasStatus(cublasLtMatrixLayoutSetAttribute(Bdesc, CUBLASLT_MATRIX_LAYOUT_ORDER, &col_turing, sizeof(col_turing)));
+    else
+      has_error |= checkCublasStatus(cublasLtMatrixLayoutSetAttribute(Bdesc, CUBLASLT_MATRIX_LAYOUT_ORDER, &col_ampere, sizeof(col_ampere)));
+
+    if(DTYPE_OUT == 32)
+    {
+      has_error |= checkCublasStatus(hipblasLtMatmulDescCreate(&matmulDesc, HIPBLAS_COMPUTE_32I, HIP_R_32I));
+      has_error |= checkCublasStatus(hipblasLtMatmulDescSetAttribute(matmulDesc, HIPBLASLT_MATMUL_DESC_TRANSB, &opT, sizeof(opT)));
+      has_error |= checkCublasStatus(hipblasLtMatrixLayoutCreate(&Cdesc, HIP_R_32I, m, n, ldc));
+      has_error |= checkCublasStatus(cublasLtMatrixLayoutSetAttribute(Cdesc, CUBLASLT_MATRIX_LAYOUT_ORDER, &col32, sizeof(col32)));
+      int alpha = 1, beta = 0;
+      has_error |= checkCublasStatus(hipblasLtMatmul(ltHandle, matmulDesc,&alpha, A, Adesc, B, Bdesc, &beta, (int32_t*)C, Cdesc, (int32_t*)C, Cdesc, NULL, NULL, 0, 0));
+    }
+    else
+    {
+      has_error |= checkCublasStatus(hipblasLtMatmulDescCreate(&matmulDesc, HIPBLAS_COMPUTE_32I, HIP_R_32F));
+      has_error |= checkCublasStatus(hipblasLtMatmulDescSetAttribute(matmulDesc, HIPBLASLT_MATMUL_DESC_TRANSB, &opT, sizeof(opT)));
+      has_error |= checkCublasStatus(hipblasLtMatrixLayoutCreate(&Cdesc, HIP_R_8I, m, n, ldc));
+      has_error |= checkCublasStatus(cublasLtMatrixLayoutSetAttribute(Cdesc, CUBLASLT_MATRIX_LAYOUT_ORDER, &col32, sizeof(col32)));
+      if(!SCALE_ROWS)
+      {
+        float alpha = 1.0f, beta = 0.0f;
+        has_error |= checkCublasStatus(hipblasLtMatmul(ltHandle, matmulDesc,&alpha, A, Adesc, B, Bdesc, &beta, (int8_t*)C, Cdesc, (int8_t*)C, Cdesc, NULL, NULL, 0, 0));
+      }
+      else
+      {
+        has_error |= checkCublasStatus(hipblasLtMatmulDescSetAttribute(matmulDesc, HIPBLASLT_MATMUL_DESC_POINTER_MODE, &alphaVec, sizeof(alphaVec)));
+        has_error |= checkCublasStatus(hipblasLtMatmul(ltHandle, matmulDesc, row_scale, A, Adesc, B, Bdesc, NULL, (int8_t*)C, Cdesc, (int8_t*)C, Cdesc, NULL, NULL, 0, 0));
+      }
+    }
+
+
+    if (Cdesc) has_error |= checkCublasStatus(hipblasLtMatrixLayoutDestroy(Cdesc));
+    if (Bdesc) has_error |= checkCublasStatus(hipblasLtMatrixLayoutDestroy(Bdesc));
+    if (Adesc) has_error |= checkCublasStatus(hipblasLtMatrixLayoutDestroy(Adesc));
+    if (matmulDesc) has_error |= checkCublasStatus(hipblasLtMatmulDescDestroy(matmulDesc));
+    if(has_error == 1)
+      printf("error detected");
+
+    return has_error;
 #endif // NO_CUBLASLT
 }
 int fill_up_to_nearest_multiple(int value, int multiple)
