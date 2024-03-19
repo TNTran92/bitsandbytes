@@ -1013,7 +1013,7 @@ def dequantize_blockwise(
     return out
 
 
-def get_4bit_type(typename, device=None, blocksize=64):
+def get_4bit_type(typename, device=None, blocksize=128):
     if device is None:
         device = "cuda"
     data = None
@@ -1098,7 +1098,7 @@ def quantize_fp4(
     A: Tensor,
     absmax: Optional[torch.Tensor] = None,
     out: Optional[torch.Tensor] = None,
-    blocksize=64,
+    blocksize=128,
     compress_statistics=False,
     quant_storage=torch.uint8,
 ):
@@ -1109,7 +1109,7 @@ def quantize_nf4(
     A: Tensor,
     absmax: Optional[torch.Tensor] = None,
     out: Optional[torch.Tensor] = None,
-    blocksize=64,
+    blocksize=128,
     compress_statistics=False,
     quant_storage=torch.uint8,
 ):
@@ -1120,7 +1120,7 @@ def quantize_4bit(
     A: Tensor,
     absmax: Optional[torch.Tensor] = None,
     out: Optional[torch.Tensor] = None,
-    blocksize=64,
+    blocksize=128,
     compress_statistics=False,
     quant_type="fp4",
     quant_storage=torch.uint8,
