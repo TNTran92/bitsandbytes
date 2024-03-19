@@ -1968,7 +1968,7 @@ def test_fp4_quant(dtype):
 
 @pytest.mark.parametrize("quant_type", ["fp4", "nf4"])
 def test_4bit_compressed_stats(quant_type):
-    for blocksize in [128, 64]:
+    for blocksize in [256, 128]:
         errs1 = []
         errs2 = []
         for i in range(10):

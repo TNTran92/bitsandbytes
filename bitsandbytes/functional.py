@@ -1167,7 +1167,7 @@ def quantize_4bit(
         mod = dtype2bytes[quant_storage] * 2
         out = torch.zeros(((n + 1) // mod, 1), dtype=quant_storage, device=A.device)
 
-    assert blocksize in [4096, 2048, 1024, 512, 256, 128, 64]
+    assert blocksize in [4096, 2048, 1024, 512, 256, 128]
 
     prev_device = pre_call(A.device)
     is_on_gpu([A, out, absmax])
