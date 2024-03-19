@@ -398,7 +398,7 @@ def test_matmul_4bit(
             if has_bias:
                 out_torch += bias
             print(f"out_bnb is: {out_bnb}")
-            assert out_bnb.dtype == c, f"bnb matmullt received {A.dtype} but returned {out_bnb.dtype}"
+            assert out_bnb.dtype == A.dtype, f"bnb matmullt received {A.dtype} but returned {out_bnb.dtype}"
             
             n = out_bnb.numel()
             err = torch.abs(out_bnb - out_torch).float().mean().item()
