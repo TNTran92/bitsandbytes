@@ -210,7 +210,7 @@ class Params4bit(torch.nn.Parameter):
         data: Optional[torch.Tensor] = None,
         requires_grad=False,  # quantized weights should be frozen by default
         quant_state: Optional[QuantState] = None,
-        blocksize: int = 64,
+        blocksize: int = 128,
         compress_statistics: bool = True,
         quant_type: str = "fp4",
         quant_storage: torch.dtype = torch.uint8,
