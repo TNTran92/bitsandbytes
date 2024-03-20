@@ -230,6 +230,8 @@ elseif(BUILD_MPS)
 else()
     list(APPEND SRC_FILES ${CUDA_FILES})
     string(APPEND BNB_OUTPUT_NAME "_cuda110")
+    # real name
+    #string(APPEND BNB_OUTPUT_NAME "_hip_nohipblaslt")
     add_compile_definitions(BUILD_HIP)
 endif()
 
