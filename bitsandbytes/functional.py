@@ -1268,7 +1268,7 @@ def dequantize_fp4(
     quant_state: Optional[QuantState] = None,
     absmax: Optional[torch.Tensor] = None,
     out: Optional[torch.Tensor] = None,
-    blocksize: int = 64,
+    blocksize: int = 128,
 ) -> Tensor:
     return dequantize_4bit(A, quant_state, absmax, out, blocksize, "fp4")
 
@@ -1278,7 +1278,7 @@ def dequantize_nf4(
     quant_state: Optional[QuantState] = None,
     absmax: Optional[torch.Tensor] = None,
     out: Optional[torch.Tensor] = None,
-    blocksize: int = 64,
+    blocksize: int = 128,
 ) -> Tensor:
     return dequantize_4bit(A, quant_state, absmax, out, blocksize, "nf4")
 
@@ -1288,7 +1288,7 @@ def dequantize_4bit(
     quant_state: Optional[QuantState] = None,
     absmax: Optional[torch.Tensor] = None,
     out: Optional[torch.Tensor] = None,
-    blocksize: int = 64,
+    blocksize: int = 128,
     quant_type="fp4",
 ) -> Tensor:
     """
@@ -1317,9 +1317,9 @@ def dequantize_4bit(
     torch.Tensor:
         Dequantized tensor.
     """
-    if blocksize not in [2048, 4096, 1024, 512, 256, 128, 64]:
+    if blocksize not in [2048, 4096, 1024, 512, 256, 128]:
         raise ValueError(
-            f"The blockwise of {blocksize} is not supported. Supported values: [2048, 4096, 1024, 512, 256, 128, 64]",
+            f"The blockwise of {blocksize} is not supported. Supported values: [2048, 4096, 1024, 512, 256, 128]",
         )
     if quant_type not in ["fp4", "nf4"]:
         raise NotImplementedError(f"4-bit quantization data type {quant_type} is not implemented.")

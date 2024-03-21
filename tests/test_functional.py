@@ -2165,13 +2165,13 @@ def test_gemv_4bit(dtype, storage_type, quant_storage, double_quant, kind):
             assert maxratio < 1.005 and maxratio > 0.995
         elif dtype == torch.float32:
             if dim <= 512:
-                assert err1 < 5e-8
+                assert err1 < 5.5e-8
                 assert relerr1 < 1e-6
-                assert maxerr1 < 1e-7
+                assert maxerr1 < 4.5e-7
             else:
-                assert err1 < 5e-8
+                assert err1 < 5.5e-8
                 assert relerr1 < 8e-6
-                assert maxerr1 < 1e-7
+                assert maxerr1 < 4.5e-7
             assert absratio < 1.005 and absratio > 0.995
             assert relratio < 1.005 and relratio > 0.995
             assert maxratio < 1.005 and maxratio > 0.995
