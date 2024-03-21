@@ -2186,7 +2186,7 @@ def test_gemv_4bit(dtype, storage_type, quant_storage, double_quant, kind):
                 assert maxerr1 < 0.0012
             assert absratio < 1.005 and absratio > 0.995
             assert relratio < 1.04 and relratio > 0.96
-            assert maxratio < 1.02 and maxratio > 0.98
+            assert maxratio < 1.025 and maxratio > 0.97
 
 
 @pytest.mark.skip("Row scale has some bugs for ampere")

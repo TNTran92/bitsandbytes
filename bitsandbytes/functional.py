@@ -843,7 +843,7 @@ def quantize_blockwise(
         out = torch.zeros_like(A, dtype=torch.uint8)
 
     if A.device.type != "cpu":
-        assert blocksize in [4096, 2048, 1024, 512, 256, 128, 64]
+        assert blocksize in [4096, 2048, 1024, 512, 256, 128]
         cblocksize = ct.c_int32(blocksize)
         prev_device = pre_call(A.device)
         code = code.to(A.device)
@@ -964,7 +964,7 @@ def dequantize_blockwise(
     if A.device.type != "cpu":
         device = pre_call(A.device)
         code = quant_state.code.to(A.device)
-        if quant_state.blocksize not in [2048, 4096, 1024, 512, 256, 128, 64]:
+        if quant_state.blocksize not in [2048, 4096, 1024, 512, 256, 128]:
             raise ValueError(
                 f"The blockwise of {quant_state.blocksize} is not supported. Supported values: [2048, 4096, 1024, 512, 256, 128, 64]",
             )
