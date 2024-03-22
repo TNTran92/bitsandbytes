@@ -29,19 +29,30 @@ Best effort has been made to to ensure the code runs as well as possible. Howeve
 The current repo has been compiled and test run on the following system config
 
 Intel i7-13700K
+
 7900 XTX 24 GB
+
 64GB system memory
+
 ROCM version: 6.0.2
+
 Ubuntu 22.04
 
 ## Installation
 Clone this repo or download the source code
+
 Create virtual environment
+
 conda create -n mypython39-rocm python=3.9
+
 Install torch-rocm 6.0
+
 pip3 install --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/rocm6.0
+
 Install this packge 
+
 python3 -m pip install ./bitsandbytes.tar.gz 
+
 
 ## ROCM Installation
 Only Ubuntu 22.04 was tested on. Windows WSL have not been tested on.
