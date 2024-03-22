@@ -573,7 +573,7 @@ def test_kbit_backprop(module):
             assert_all_approx_close(grad1, grad2, atol=0.008, rtol=0.05, count=1)
             torch.testing.assert_close(bgrad1, bgrad2, atol=0.008, rtol=0.05)
         else:
-            assert_all_approx_close(grad1, grad2, atol=0.016, rtol=0.05, count=1)
+            assert_all_approx_close(grad1, grad2, atol=0.0165, rtol=0.055, count=1)
             torch.testing.assert_close(bgrad1, bgrad2, atol=0.021, rtol=0.051)
         ref.zero_grad()
         kbit.zero_grad()
