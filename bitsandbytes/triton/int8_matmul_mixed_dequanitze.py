@@ -1,22 +1,22 @@
 import torch
-
 from bitsandbytes.triton.triton_utils import is_triton_available
 
 if not is_triton_available():
-    def int8_matmul_rowwise_dequantize(a, b, state_x, state_w, bias): return None
+    def int8_matmul_mixed_dequanitze(a, b, state_x, state_w, bias): return None
 else:
+
     import triton
     import triton.language as tl
     from triton.ops.matmul_perf_model import early_config_prune, estimate_matmul_time
 
+
     # This is a matmul kernel based on triton.ops.matmul
-    # It is modified to support rowwise quantized input and columnwise quantized weight
+    # It is modified to support rowwise quantized input and global quantized weight
     # It's purpose is fused matmul then dequantize
     # It does support bias.
 
     def init_to_zero(name):
         return lambda nargs: nargs[name].zero_()
-
 
     def get_configs_io_bound():
         configs = []
@@ -69,7 +69,7 @@ else:
         'EVEN_K': lambda args: args['K'] % (args['BLOCK_K'] * args['SPLIT_K']) == 0,
     })
     @triton.jit
-    def _int8_matmul_rowwise_dequantize(A, B, C, bias, state_x_ptr, state_w_ptr, M, N, K, divfactor, has_bias : tl.constexpr,
+    def _int8_matmul_mixed_dequantize(A, B, C, bias, state_x_ptr, state_w_ptr, M, N, K, divfactor: tl.constexpr, has_bias : tl.constexpr,
                 stride_am, stride_ak,
                 stride_bk, stride_bn,
                 stride_cm, stride_cn,
@@ -102,7 +102,7 @@ else:
         rm = pid_m * BLOCK_M + tl.arange(0, BLOCK_M)
         rn = pid_n * BLOCK_N + tl.arange(0, BLOCK_N)
 
-        w_factor = tl.load(state_w_ptr + rbn)[None, :]
+        w_factor = tl.load(state_w_ptr)
         x_factor = tl.load(state_x_ptr + ram)[:, None]
 
         # acc = tl.zeros((BLOCK_M, BLOCK_N), dtype=ACC_TYPE)
@@ -122,6 +122,7 @@ else:
         acc = (w_factor * (x_factor * (acc * divfactor)))
         acc = acc.to(C.dtype.element_ty)
 
+        # conditionally add bias
         if has_bias:
             bias = tl.load(bias + rn).to(C.dtype.element_ty)
             acc = acc + bias[None, :]
@@ -135,12 +136,10 @@ else:
             tl.atomic_add(C, acc, mask=mask)
 
 
-    def int8_matmul_rowwise_dequantize(a, b, state_x, state_w, bias):
-        divfactor = 1. / (127. * 127.)
-
-        has_bias = 0 if bias is None else 1
-
+    def int8_matmul_mixed_dequanitze(a, b, state_x, state_w, bias):
         device = a.device
+        divfactor = 1. / (127. * 127.)
+        has_bias = 0 if bias is None else 1
         # handle non-contiguous inputs if necessary
         if a.stride(0) > 1 and a.stride(1) > 1:
             a = a.contiguous()
@@ -154,9 +153,9 @@ else:
         c = torch.empty((M, N), device=device, dtype=torch.float16)
         # accumulator types
         ACC_TYPE = tl.float32 #if a.dtype in [torch.float16, torch.bfloat16, torch.float32] else tl.int32
-        # launch int8_matmul_rowwise_dequantize kernel
+        # launch int8_matmul_mixed_dequantize kernel
         grid = lambda META: (triton.cdiv(M, META['BLOCK_M']) * triton.cdiv(N, META['BLOCK_N']), META['SPLIT_K'])
-        _int8_matmul_rowwise_dequantize[grid](a, b, c, bias, state_x, state_w, M, N, K, divfactor, has_bias,
+        _int8_matmul_mixed_dequantize[grid](a, b, c, bias, state_x, state_w, M, N, K, divfactor, has_bias,
                         a.stride(0), a.stride(1),
                         b.stride(0), b.stride(1),
                         c.stride(0), c.stride(1),

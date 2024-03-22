@@ -2,49 +2,22 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
-import copy
-from typing import Any, Dict, Optional, TypeVar, Union, overload
-import warnings
+from typing import Optional, TypeVar, Union, overload
 
 import torch
-from torch import Tensor, device, dtype, nn
 import torch.nn.functional as F
+from torch import Tensor, device, dtype, nn
 
 import bitsandbytes as bnb
-from bitsandbytes.autograd._functions import get_tile_inds, undo_layout
-from bitsandbytes.functional import QuantState
+import bitsandbytes.functional
+from bitsandbytes.autograd._functions import undo_layout, get_tile_inds
 from bitsandbytes.optim import GlobalOptimManager
-from bitsandbytes.utils import OutlierTracer
+from bitsandbytes.utils import OutlierTracer, find_outlier_dims
 
 T = TypeVar("T", bound="torch.nn.Module")
 
 
 class StableEmbedding(torch.nn.Embedding):
-    """
-    Custom embedding layer designed to improve stability during training for NLP tasks by using 32-bit optimizer states. It is designed to reduce gradient variations that can result from quantization. This embedding layer is initialized with Xavier uniform initialization followed by layer normalization.
-
-    Example:
-
-    ```
-    # Initialize StableEmbedding layer with vocabulary size 1000, embedding dimension 300
-    embedding_layer = StableEmbedding(num_embeddings=1000, embedding_dim=300)
-
-    # Reset embedding parameters
-    embedding_layer.reset_parameters()
-
-    # Perform a forward pass with input tensor
-    input_tensor = torch.tensor([1, 2, 3])
-    output_embedding = embedding_layer(input_tensor)
-    ```
-
-    Attributes:
-        norm (`torch.nn.LayerNorm`): Layer normalization applied after the embedding.
-
-    Methods:
-        reset_parameters(): Reset embedding parameters using Xavier uniform initialization.
-        forward(input: Tensor) -> Tensor: Forward pass through the stable embedding layer.
-    """
-
     def __init__(
         self,
         num_embeddings: int,
@@ -58,25 +31,6 @@ class StableEmbedding(torch.nn.Embedding):
         device=None,
         dtype=None,
     ) -> None:
-        """
-        Args:
-            num_embeddings (`int`):
-                The number of unique embeddings (vocabulary size).
-            embedding_dim (`int`):
-                The dimensionality of the embedding.
-            padding_idx (`Optional[int]`):
-                Pads the output with zeros at the given index.
-            max_norm (`Optional[float]`):
-                Renormalizes embeddings to have a maximum L2 norm.
-            norm_type (`float`, defaults to `2.0`):
-                The p-norm to compute for the `max_norm` option.
-            scale_grad_by_freq (`bool`, defaults to `False`):
-                Scale gradient by frequency during backpropagation.
-            sparse (`bool`, defaults to `False`):
-                Computes dense gradients. Set to `True` to compute sparse gradients instead.
-            _weight (`Optional[Tensor]`):
-                Pretrained embeddings.
-        """
         super().__init__(
             num_embeddings,
             embedding_dim,
@@ -90,7 +44,9 @@ class StableEmbedding(torch.nn.Embedding):
             dtype,
         )
         self.norm = torch.nn.LayerNorm(embedding_dim, device=device)
-        GlobalOptimManager.get_instance().register_module_override(self, "weight", {"optim_bits": 32})
+        GlobalOptimManager.get_instance().register_module_override(
+            self, "weight", {"optim_bits": 32}
+        )
 
     def reset_parameters(self) -> None:
         torch.nn.init.xavier_uniform_(self.weight)
@@ -126,10 +82,6 @@ class StableEmbedding(torch.nn.Embedding):
 
 
 class Embedding(torch.nn.Embedding):
-    """
-    Embedding class to store and retrieve word embeddings from their indices.
-    """
-
     def __init__(
         self,
         num_embeddings: int,
@@ -142,25 +94,6 @@ class Embedding(torch.nn.Embedding):
         _weight: Optional[Tensor] = None,
         device: Optional[device] = None,
     ) -> None:
-        """
-        Args:
-            num_embeddings (`int`):
-                The number of unique embeddings (vocabulary size).
-            embedding_dim (`int`):
-                The dimensionality of the embedding.
-            padding_idx (`Optional[int]`):
-                Pads the output with zeros at the given index.
-            max_norm (`Optional[float]`):
-                Renormalizes embeddings to have a maximum L2 norm.
-            norm_type (`float`, defaults to `2.0`):
-                The p-norm to compute for the `max_norm` option.
-            scale_grad_by_freq (`bool`, defaults to `False`):
-                Scale gradient by frequency during backpropagation.
-            sparse (`bool`, defaults to `False`):
-                Computes dense gradients. Set to `True` to compute sparse gradients instead.
-            _weight (`Optional[Tensor]`):
-                Pretrained embeddings.
-        """
         super().__init__(
             num_embeddings,
             embedding_dim,
@@ -170,9 +103,11 @@ class Embedding(torch.nn.Embedding):
             scale_grad_by_freq,
             sparse,
             _weight,
-            device=device,
+            device=device
         )
-        GlobalOptimManager.get_instance().register_module_override(self, "weight", {"optim_bits": 32})
+        GlobalOptimManager.get_instance().register_module_override(
+            self, "weight", {"optim_bits": 32}
+        )
 
     def reset_parameters(self) -> None:
         torch.nn.init.xavier_uniform_(self.weight)
@@ -203,20 +138,8 @@ class Embedding(torch.nn.Embedding):
 
         return emb
 
-
 class Params4bit(torch.nn.Parameter):
-    def __new__(
-        cls,
-        data: Optional[torch.Tensor] = None,
-        requires_grad=False,  # quantized weights should be frozen by default
-        quant_state: Optional[QuantState] = None,
-        blocksize: int = 128,
-        compress_statistics: bool = True,
-        quant_type: str = "fp4",
-        quant_storage: torch.dtype = torch.uint8,
-        module: Optional["Linear4bit"] = None,
-        bnb_quantized: bool = False,
-    ) -> "Params4bit":
+    def __new__(cls, data=None, requires_grad=True, quant_state=None, blocksize=64, compress_statistics=True, quant_type='fp4'):
         if data is None:
             data = torch.empty(0)
 
@@ -225,237 +148,71 @@ class Params4bit(torch.nn.Parameter):
         self.compress_statistics = compress_statistics
         self.quant_type = quant_type
         self.quant_state = quant_state
-        self.quant_storage = quant_storage
-        self.bnb_quantized = bnb_quantized
         self.data = data
-        self.module = module
         return self
 
-    def __getstate__(self):
-        state = self.__dict__
-        state["data"] = self.data
-        state["requires_grad"] = self.requires_grad
-        return state
-
-    def __setstate__(self, state):
-        self.requires_grad = state["requires_grad"]
-        self.blocksize = state["blocksize"]
-        self.compress_statistics = state["compress_statistics"]
-        self.quant_type = state["quant_type"]
-        self.quant_state = state["quant_state"]
-        self.data = state["data"]
-        self.quant_storage = state["quant_storage"]
-        self.bnb_quantized = state["bnb_quantized"]
-        self.module = state["module"]
-
-    def __deepcopy__(self, memo):
-        new_instance = type(self).__new__(type(self))
-        state = self.__getstate__()
-        new_instance.__setstate__(state)
-        new_instance.quant_state = copy.deepcopy(state["quant_state"])
-        new_instance.data = copy.deepcopy(state["data"])
-        return new_instance
-
-    def __copy__(self):
-        new_instance = type(self).__new__(type(self))
-        state = self.__getstate__()
-        new_instance.__setstate__(state)
-        return new_instance
-
-    @classmethod
-    def from_prequantized(
-        cls,
-        data: torch.Tensor,
-        quantized_stats: Dict[str, Any],
-        requires_grad: bool = False,
-        device="cuda",
-        **kwargs,
-    ) -> "Params4bit":
-        self = torch.Tensor._make_subclass(cls, data.to(device))
-        self.requires_grad = requires_grad
-        self.quant_state = QuantState.from_dict(qs_dict=quantized_stats, device=device)
-        self.blocksize = self.quant_state.blocksize
-        self.compress_statistics = self.quant_state.nested
-        self.quant_type = self.quant_state.quant_type
-        self.bnb_quantized = True
-        return self
-
-    def _quantize(self, device):
-        w = self.data.contiguous().cuda(device)
-        w_4bit, quant_state = bnb.functional.quantize_4bit(
-            w,
-            blocksize=self.blocksize,
-            compress_statistics=self.compress_statistics,
-            quant_type=self.quant_type,
-            quant_storage=self.quant_storage,
-        )
+    def cuda(self, device):
+        w = self.data.contiguous().half().cuda(device)
+        w_4bit, quant_state = bnb.functional.quantize_4bit(w, blocksize=self.blocksize, compress_statistics=self.compress_statistics, quant_type=self.quant_type)
         self.data = w_4bit
         self.quant_state = quant_state
-        if self.module is not None:
-            self.module.quant_state = quant_state
-        self.bnb_quantized = True
+
         return self
 
-    def cuda(self, device: Optional[Union[int, device, str]] = None, non_blocking: bool = False):
-        return self.to(device="cuda" if device is None else device, non_blocking=non_blocking)
+    @overload
+    def to(self: T, device: Optional[Union[int, device]] = ..., dtype: Optional[Union[dtype, str]] = ..., non_blocking: bool = ...,) -> T:
+        ...
 
     @overload
-    def to(
-        self: T,
-        device: Optional[Union[int, device]] = ...,
-        dtype: Optional[Union[dtype, str]] = ...,
-        non_blocking: bool = ...,
-    ) -> T: ...
+    def to(self: T, dtype: Union[dtype, str], non_blocking: bool = ...) -> T:
+        ...
 
     @overload
-    def to(self: T, dtype: Union[dtype, str], non_blocking: bool = ...) -> T: ...
-
-    @overload
-    def to(self: T, tensor: Tensor, non_blocking: bool = ...) -> T: ...
+    def to(self: T, tensor: Tensor, non_blocking: bool = ...) -> T:
+        ...
 
     def to(self, *args, **kwargs):
         device, dtype, non_blocking, convert_to_format = torch._C._nn._parse_to(*args, **kwargs)
 
-        if device is not None and device.type == "cuda" and not self.bnb_quantized:
-            return self._quantize(device)
+        if (device is not None and device.type == "cuda" and self.data.device.type == "cpu"):
+            return self.cuda(device)
         else:
-            if self.quant_state is not None:
-                self.quant_state.to(device)
+            s = self.quant_state
+            if s is not None:
+                # make sure the quantization state is on the right device
+                s[0] = s[0].to(device)
+                if self.compress_statistics:
+                    # TODO: refactor this. This is a nightmare
+                    # for 4-bit: 
+                    # state = [qabsmax, input_shape, A.dtype, blocksize, [offset, state2], quant_type]
+                    # state2 = [absmax, input_shape, A.dtype, blocksize, None, quant_type]
+                    #s[-2][0] = s[-2][0].to(device) # offset
+                    #s[-2][1][0] = s[-2][1][0].to(device) # nested absmax
 
-            new_param = Params4bit(
-                super().to(device=device, dtype=dtype, non_blocking=non_blocking),
-                requires_grad=self.requires_grad,
-                quant_state=self.quant_state,
-                blocksize=self.blocksize,
-                compress_statistics=self.compress_statistics,
-                quant_type=self.quant_type,
-            )
+                    # for 8-bit
+                    s[-3][0] = s[-3][0].to(device) # offset
+                    s[-3][1][0] = s[-3][1][0].to(device) # nested quantiation state statitics
+                    s[-3][1][1] = s[-3][1][1].to(device) # nested quantiation codebook
+            new_param = Params4bit(super().to(device=device, dtype=dtype, non_blocking=non_blocking),
+                                  requires_grad=self.requires_grad, quant_state=self.quant_state,
+                                   blocksize=self.blocksize, compress_statistics=self.compress_statistics,
+                                   quant_type=self.quant_type)
 
             return new_param
 
-
 class Linear4bit(nn.Linear):
-    """
-    This class is the base module for the 4-bit quantization algorithm presented in [QLoRA](https://arxiv.org/abs/2305.14314).
-    QLoRA 4-bit linear layers uses blockwise k-bit quantization under the hood, with the possibility of selecting various
-    compute datatypes such as FP4 and NF4.
-
-    In order to quantize a linear layer one should first load the original fp16 / bf16 weights into
-    the Linear4bit module, then call `quantized_module.to("cuda")` to quantize the fp16 / bf16 weights.
-
-    Example:
-
-    ```python
-    import torch
-    import torch.nn as nn
-
-    import bitsandbytes as bnb
-    from bnb.nn import Linear4bit
-
-    fp16_model = nn.Sequential(
-        nn.Linear(64, 64),
-        nn.Linear(64, 64)
-    )
-
-    quantized_model = nn.Sequential(
-        Linear4bit(64, 64),
-        Linear4bit(64, 64)
-    )
-
-    quantized_model.load_state_dict(fp16_model.state_dict())
-    quantized_model = quantized_model.to(0) # Quantization happens here
-    ```
-    """
-
-    def __init__(
-        self,
-        input_features,
-        output_features,
-        bias=True,
-        compute_dtype=None,
-        compress_statistics=True,
-        quant_type="fp4",
-        quant_storage=torch.uint8,
-        device=None,
-    ):
-        """
-        Initialize Linear4bit class.
-
-        Args:
-            input_features (`str`):
-                Number of input features of the linear layer.
-            output_features (`str`):
-                Number of output features of the linear layer.
-            bias (`bool`, defaults to `True`):
-                Whether the linear class uses the bias term as well.
-        """
+    def __init__(self, input_features, output_features, bias=True, compute_dtype=None, compress_statistics=True, quant_type='fp4',device=None):
         super().__init__(input_features, output_features, bias, device)
-        self.weight = Params4bit(
-            self.weight.data,
-            requires_grad=False,
-            compress_statistics=compress_statistics,
-            quant_type=quant_type,
-            quant_storage=quant_storage,
-            module=self,
-        )
-        # self.persistent_buffers = []  # TODO consider as way to save quant state
+        self.weight = Params4bit(self.weight.data, requires_grad=False, compress_statistics=compress_statistics, quant_type=quant_type)
         self.compute_dtype = compute_dtype
-        self.compute_type_is_set = False
-        self.quant_state = None
-        self.quant_storage = quant_storage
-
-    def set_compute_type(self, x):
-        if x.dtype in [torch.float32, torch.bfloat16]:
-            # the input is in a dtype that is safe to compute in, we switch
-            # to this type for speed and stability
-            self.compute_dtype = x.dtype
-        elif x.dtype == torch.float16:
-            # we take the compoute dtype passed into the layer
-            if self.compute_dtype == torch.float32 and (x.numel() == x.shape[-1]):
-                # single batch inference with input torch.float16 and compute_dtype float32 -> slow inference when it could be fast
-                # warn the user about this
-                warnings.warn(
-                    "Input type into Linear4bit is torch.float16, but bnb_4bit_compute_dtype=torch.float32 (default). This will lead to slow inference.",
-                )
-                warnings.filterwarnings("ignore", message=".*inference.")
-            if self.compute_dtype == torch.float32 and (x.numel() != x.shape[-1]):
-                warnings.warn(
-                    "Input type into Linear4bit is torch.float16, but bnb_4bit_compute_dtype=torch.float32 (default). This will lead to slow inference or training speed.",
-                )
-                warnings.filterwarnings("ignore", message=".*inference or training")
-
-    def _save_to_state_dict(self, destination, prefix, keep_vars):
-        """
-        save weight and bias,
-        then fill state_dict with components of quant_state
-        """
-        super()._save_to_state_dict(destination, prefix, keep_vars)  # saving weight and bias
-
-        if getattr(self.weight, "quant_state", None) is not None:
-            for k, v in self.weight.quant_state.as_dict(packed=True).items():
-                destination[prefix + "weight." + k] = v if keep_vars else v.detach()
 
     def forward(self, x: torch.Tensor):
         # weights are cast automatically as Int8Params, but the bias has to be cast manually
         if self.bias is not None and self.bias.dtype != x.dtype:
             self.bias.data = self.bias.data.to(x.dtype)
 
-        if getattr(self.weight, "quant_state", None) is None:
-            if getattr(self, "quant_state", None) is not None:
-                # the quant state got lost when the parameter got converted. This happens for example for fsdp
-                # since we registered the module, we can recover the state here
-                assert self.weight.shape[1] == 1
-                if not isinstance(self.weight, Params4bit):
-                    self.weight = Params4bit(self.weight, quant_storage=self.quant_storage)
-                self.weight.quant_state = self.quant_state
-            else:
-                print(
-                    "FP4 quantization state not initialized. Please call .cuda() or .to(device) on the LinearFP4 layer first.",
-                )
-        if not self.compute_type_is_set:
-            self.set_compute_type(x)
-            self.compute_type_is_set = True
-
+        if getattr(self.weight, 'quant_state', None) is None:
+            print('FP4 quantization state not initialized. Please call .cuda() or .to(device) on the LinearFP4 layer first.')
         inp_dtype = x.dtype
         if self.compute_dtype is not None:
             x = x.to(self.compute_dtype)
@@ -467,84 +224,14 @@ class Linear4bit(nn.Linear):
 
         return out
 
-
 class LinearFP4(Linear4bit):
-    """
-    Implements the FP4 data type.
-    """
-
-    def __init__(
-        self,
-        input_features,
-        output_features,
-        bias=True,
-        compute_dtype=None,
-        compress_statistics=True,
-        quant_storage=torch.uint8,
-        device=None,
-    ):
-        """
-        Args:
-            input_features (`str`):
-                Number of input features of the linear layer.
-            output_features (`str`):
-                Number of output features of the linear layer.
-            bias (`bool`, defaults to `True`):
-                Whether the linear class uses the bias term as well.
-        """
-        super().__init__(
-            input_features,
-            output_features,
-            bias,
-            compute_dtype,
-            compress_statistics,
-            "fp4",
-            quant_storage,
-            device,
-        )
-
+    def __init__(self, input_features, output_features, bias=True, compute_dtype=None, compress_statistics=True,device=None):
+        super().__init__(input_features, output_features, bias, compute_dtype, compress_statistics, 'fp4', device)
 
 class LinearNF4(Linear4bit):
-    """Implements the NF4 data type.
+    def __init__(self, input_features, output_features, bias=True, compute_dtype=None, compress_statistics=True,device=None):
+        super().__init__(input_features, output_features, bias, compute_dtype, compress_statistics, 'nf4', device)
 
-    Constructs a quantization data type where each bin has equal area under a standard normal distribution N(0, 1) that
-    is normalized into the range [-1, 1].
-
-    For more information read the paper: QLoRA: Efficient Finetuning of Quantized LLMs (https://arxiv.org/abs/2305.14314)
-
-    Implementation of the NF4 data type in bitsandbytes can be found in the `create_normal_map` function in
-    the `functional.py` file: https://github.com/TimDettmers/bitsandbytes/blob/main/bitsandbytes/functional.py#L236.
-    """
-
-    def __init__(
-        self,
-        input_features,
-        output_features,
-        bias=True,
-        compute_dtype=None,
-        compress_statistics=True,
-        quant_storage=torch.uint8,
-        device=None,
-    ):
-        """
-        Args:
-            input_features (`str`):
-                Number of input features of the linear layer.
-            output_features (`str`):
-                Number of output features of the linear layer.
-            bias (`bool`, defaults to `True`):
-                Whether the linear class uses the bias term as well.
-        """
-        super().__init__(
-            input_features,
-            output_features,
-            bias,
-            compute_dtype,
-            compress_statistics,
-            "nf4",
-            quant_storage,
-            device,
-        )
 
 
 class Int8Params(torch.nn.Parameter):
@@ -561,9 +248,7 @@ class Int8Params(torch.nn.Parameter):
         cls.SCB = None
         if data is None:
             data = torch.empty(0)
-        obj = torch.Tensor._make_subclass(cls, data, requires_grad)
-        obj.CB, obj.SCB = cls.CB, cls.SCB
-        return obj
+        return torch.Tensor._make_subclass(cls, data, requires_grad)
 
     def cuda(self, device):
         if self.has_fp16_weights:
@@ -576,8 +261,8 @@ class Int8Params(torch.nn.Parameter):
             del CBt
             del SCBt
             self.data = CB
-            self.CB = CB
-            self.SCB = SCB
+            setattr(self, "CB", CB)
+            setattr(self, "SCB", SCB)
 
         return self
 
@@ -587,22 +272,33 @@ class Int8Params(torch.nn.Parameter):
         device: Optional[Union[int, device]] = ...,
         dtype: Optional[Union[dtype, str]] = ...,
         non_blocking: bool = ...,
-    ) -> T: ...
+    ) -> T:
+        ...
 
     @overload
-    def to(self: T, dtype: Union[dtype, str], non_blocking: bool = ...) -> T: ...
+    def to(self: T, dtype: Union[dtype, str], non_blocking: bool = ...) -> T:
+        ...
 
     @overload
-    def to(self: T, tensor: Tensor, non_blocking: bool = ...) -> T: ...
+    def to(self: T, tensor: Tensor, non_blocking: bool = ...) -> T:
+        ...
 
     def to(self, *args, **kwargs):
-        device, dtype, non_blocking, convert_to_format = torch._C._nn._parse_to(*args, **kwargs)
+        device, dtype, non_blocking, convert_to_format = torch._C._nn._parse_to(
+            *args, **kwargs
+        )
 
-        if device is not None and device.type == "cuda" and self.data.device.type == "cpu":
+        if (
+            device is not None
+            and device.type == "cuda"
+            and self.data.device.type == "cpu"
+        ):
             return self.cuda(device)
         else:
             new_param = Int8Params(
-                super().to(device=device, dtype=dtype, non_blocking=non_blocking),
+                super().to(
+                    device=device, dtype=dtype, non_blocking=non_blocking
+                ),
                 requires_grad=self.requires_grad,
                 has_fp16_weights=self.has_fp16_weights,
             )
@@ -625,59 +321,8 @@ def maybe_rearrange_weight(state_dict, prefix, local_metadata, strict, missing_k
 
 
 class Linear8bitLt(nn.Linear):
-    """
-    This class is the base module for the [LLM.int8()](https://arxiv.org/abs/2208.07339) algorithm.
-    To read more about it, have a look at the paper.
-
-    In order to quantize a linear layer one should first load the original fp16 / bf16 weights into
-    the Linear8bitLt module, then call `int8_module.to("cuda")` to quantize the fp16 weights.
-
-    Example:
-
-    ```python
-    import torch
-    import torch.nn as nn
-
-    import bitsandbytes as bnb
-    from bnb.nn import Linear8bitLt
-
-    fp16_model = nn.Sequential(
-        nn.Linear(64, 64),
-        nn.Linear(64, 64)
-    )
-
-    int8_model = nn.Sequential(
-        Linear8bitLt(64, 64, has_fp16_weights=False),
-        Linear8bitLt(64, 64, has_fp16_weights=False)
-    )
-
-    int8_model.load_state_dict(fp16_model.state_dict())
-    int8_model = int8_model.to(0) # Quantization happens here
-    ```
-    """
-
-    def __init__(
-        self,
-        input_features: int,
-        output_features: int,
-        bias=True,
-        has_fp16_weights=True,
-        memory_efficient_backward=False,
-        threshold=0.0,
-        index=None,
-        device=None,
-    ):
-        """
-        Initialize Linear8bitLt class.
-
-        Args:
-            input_features (`int`):
-                Number of input features of the linear layer.
-            output_features (`int`):
-                Number of output features of the linear layer.
-            bias (`bool`, defaults to `True`):
-                Whether the linear class uses the bias term as well.
-        """
+    def __init__(self, input_features, output_features, bias=True, has_fp16_weights=True,
+                       memory_efficient_backward=False, threshold=0.0, index=None, device=None):
         super().__init__(input_features, output_features, bias, device)
         assert not memory_efficient_backward, "memory_efficient_backward is no longer required and the argument is deprecated in 0.37.0 and will be removed in 0.39.0"
         self.state = bnb.MatmulLtState()
@@ -719,36 +364,19 @@ class Linear8bitLt(nn.Linear):
                 destination[key_name] = param_from_state if keep_vars else param_from_state.detach()
                 destination[format_name] = self.state.formatB
 
-    def _load_from_state_dict(
-        self,
-        state_dict,
-        prefix,
-        local_metadata,
-        strict,
-        missing_keys,
-        unexpected_keys,
-        error_msgs,
-    ):
-        super()._load_from_state_dict(
-            state_dict,
-            prefix,
-            local_metadata,
-            strict,
-            missing_keys,
-            unexpected_keys,
-            error_msgs,
-        )
+    def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
+                              missing_keys, unexpected_keys, error_msgs):
+        super()._load_from_state_dict(state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys,
+                                      error_msgs)
         unexpected_copy = list(unexpected_keys)
 
         for key in unexpected_copy:
-            input_name = key[len(prefix) :]
+            input_name = key[len(prefix):]
             if input_name == "SCB":
                 if self.weight.SCB is None:
                     # buffers not yet initialized, can't access them directly without quantizing first
-                    raise RuntimeError(
-                        "Loading a quantized checkpoint into non-quantized Linear8bitLt is "
-                        "not supported. Please call module.cuda() before module.load_state_dict()",
-                    )
+                    raise RuntimeError("Loading a quantized checkpoint into non-quantized Linear8bitLt is "
+                                       "not supported. Please call module.cuda() before module.load_state_dict()")
 
                 input_param = state_dict[key]
                 self.weight.SCB.copy_(input_param)
@@ -791,25 +419,24 @@ class OutlierAwareLinear(nn.Linear):
         self.is_quantized = False
 
     def forward_with_outliers(self, x, outlier_idx):
-        raise NotImplementedError("Please override the `forward_with_outliers(self, x, outlier_idx)` function")
+        raise NotImplementedError('Please override the `forward_with_outliers(self, x, outlier_idx)` function')
 
     def quantize_weight(self, w, outlier_idx):
-        raise NotImplementedError("Please override the `quantize_weights(self, w, outlier_idx)` function")
+        raise NotImplementedError('Please override the `quantize_weights(self, w, outlier_idx)` function')
 
     def forward(self, x):
         if self.outlier_dim is None:
             tracer = OutlierTracer.get_instance()
             if not tracer.is_initialized():
-                print("Please use OutlierTracer.initialize(model) before using the OutlierAwareLinear layer")
+                print('Please use OutlierTracer.initialize(model) before using the OutlierAwareLinear layer')
             outlier_idx = tracer.get_outliers(self.weight)
-            # print(outlier_idx, tracer.get_hvalue(self.weight))
+            #print(outlier_idx, tracer.get_hvalue(self.weight))
             self.outlier_dim = outlier_idx
 
         if not self.is_quantized:
             w = self.quantize_weight(self.weight, self.outlier_dim)
             self.weight.data.copy_(w)
             self.is_quantized = True
-
 
 class SwitchBackLinearBnb(nn.Linear):
     def __init__(
@@ -821,9 +448,11 @@ class SwitchBackLinearBnb(nn.Linear):
         memory_efficient_backward=False,
         threshold=0.0,
         index=None,
-        device=None,
+        device=None
     ):
-        super().__init__(input_features, output_features, bias, device)
+        super().__init__(
+            input_features, output_features, bias, device
+        )
         self.state = bnb.MatmulLtState()
         self.index = index
 
@@ -833,7 +462,9 @@ class SwitchBackLinearBnb(nn.Linear):
         if threshold > 0.0 and not has_fp16_weights:
             self.state.use_pool = True
 
-        self.weight = Int8Params(self.weight.data, has_fp16_weights=has_fp16_weights, requires_grad=has_fp16_weights)
+        self.weight = Int8Params(
+            self.weight.data, has_fp16_weights=has_fp16_weights, requires_grad=has_fp16_weights
+        )
 
     def init_8bit_state(self):
         self.state.CB = self.weight.CB
