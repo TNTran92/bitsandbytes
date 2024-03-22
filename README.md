@@ -13,13 +13,18 @@ https://github.com/ROCm/ROCm/issues/2901#issuecomment-1950136950
 As of ROCM 6.0, the following GPU is shown as supported architecture by the compiler but has not been tested. User feedback is encouraged.
 
 -gfx1030 (6800, 6800XT, 6900XT, 6950XT)
+
 -gfx942 (MI300)
+
 -gfx908 (MI200)
+
 -gfx906
+
 -gfx900
+
 -gfx90a
 
-Best effort has been made to to ensure the code runs as well as possible. However, feel free to open an issue or make a PR if such a need arises.
+Best effort has been made to to ensure the code runs as well as possible. However, feel free to open an issue or make a PR
 
 The current repo has been compiled and test run on the following system config
 
