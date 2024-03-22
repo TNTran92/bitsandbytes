@@ -1,6 +1,5 @@
-import torch
-
 import bitsandbytes as bnb
+import torch
 
 p = torch.nn.Parameter(torch.rand(10,10).cuda())
 a = torch.rand(10,10).cuda()
