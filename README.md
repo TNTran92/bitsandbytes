@@ -1,10 +1,10 @@
 # `bitsandbytes`
 
-This is a ROCM port of the bitsandbytes package. Early version of this port has been attempted but they were poorly maintained and thus, no longer applicable starting from ROCM 6.0. This repo aims at resolving this pain point and bring the ability to fine tune LLM to AMD GPU
+This is a ROCM port of the `bitsandbytes` package. Early version of this port has been attempted but they were poorly maintained and thus, no longer applicable starting from ROCM 6.0. This repo aims at resolving this pain point and bring the ability to fine tune LLM to AMD GPU
 
-ROCM 6.0 official supports the following model in the gfx1100 family (7900 XTX, 7900 XT, 7900 GRE).
+ROCM 6.0 official supports the following model in the `gfx1100` family (7900 XTX, 7900 XT, 7900 GRE).
 
-For gfx1101 (7700XT, 7800XT) and gfx1102 (7600, 7600XT) as well as other not officially supported card, user can try setting the following flag in pyTorch
+For `gfx1101` (7700XT, 7800XT) and `gfx1102` (7600, 7600XT) as well as other not officially supported card, user can try setting the following flag in pyTorch
 
 HSA_OVERRIDE_GFX_VERSION=11.0.0.
 https://github.com/ROCm/ROCm/issues/2901#issuecomment-1950136950
@@ -12,17 +12,17 @@ https://github.com/ROCm/ROCm/issues/2901#issuecomment-1950136950
 
 As of ROCM 6.0, the following GPU is shown as supported architecture by the compiler but has not been tested. User feedback is encouraged.
 
--gfx1030 (6800, 6800XT, 6900XT, 6950XT)
+-`gfx1030` (6800, 6800XT, 6900XT, 6950XT)
 
--gfx942 (MI300)
+-`gfx942` (MI300)
 
--gfx908 (MI200)
+-`gfx908` (MI200)
 
--gfx906
+-`gfx906`
 
--gfx900
+-`gfx900`
 
--gfx90a
+-`gfx90a`
 
 Best effort has been made to to ensure the code runs as well as possible. However, feel free to open an issue or make a PR
 
