@@ -33,55 +33,47 @@ set(METAL_FILES csrc/mps_kernels.metal)
 # C++ sources are always included
 list(APPEND SRC_FILES ${CPP_FILES})
 
-set(COMPUTE_BACKEND "hip" CACHE STRING "The compute backend to use (cpu, cuda, mps, hip)")
+set(COMPUTE_BACKEND "cpu" CACHE STRING "The compute backend to use (cpu, cuda, mps, hip)")
 set_property(CACHE COMPUTE_BACKEND PROPERTY STRINGS cpu cuda mps hip)
 option(PTXAS_VERBOSE "Pass through -v flag to PTX Assembler" OFF)
 
-if(COMPUTE_BACKEND STREQUAL "hip")
-    if(NOT DEFINED HIP_PATH)
-        if(NOT DEFINED ENV{HIP_PATH})
-            set(HIP_PATH "/opt/rocm/hip" CACHE PATH "Path to which HIP has been installed")
-        else()
-            set(HIP_PATH $ENV{HIP_PATH} CACHE PATH "Path to which HIP has been installed")
-        endif()
-    endif()
-    message("HIP_PATH: " ${HIP_PATH})
-    set(CMAKE_MODULE_PATH "${HIP_PATH}/cmake" ${CMAKE_MODULE_PATH})
-
-    find_package(HIP REQUIRED)
-    if (HIP_FOUND)
-      message(STATUS "Found HIP: " ${HIP_VERSION})
+if(NOT DEFINED HIP_PATH)
+    if(NOT DEFINED ENV{HIP_PATH})
+        set(HIP_PATH "/opt/rocm/hip" CACHE PATH "Path to which HIP has been installed")
     else()
-      message(FATAL_ERROR "Could not find HIP")
+        set(HIP_PATH $ENV{HIP_PATH} CACHE PATH "Path to which HIP has been installed")
     endif()
-
-    find_package(rocthrust REQUIRED)
-    find_package(hipblas REQUIRED)
-    find_package(hipsparse REQUIRED)
-    find_package(rocrand REQUIRED)
-
-
-    # Search for rocm in common locations
-    list(APPEND CMAKE_PREFIX_PATH /opt/rocm/hip /opt/rocm /opt/rocm)
-    list(APPEND HIP_PATH /opt/rocm/llvm/bin/)
-    # Find HIP.
-    # The user may override AMDGPU_TARGETS defined in the HIP config file
-    # to select the AMDGPU archs to compile for.
-    # ex. set(AMDGPU_TARGETS "gfx803;gfx900;gfx906")
-
-    # Find OpenMP.
-    #find_package(OpenMP REQUIRED)
-
-    # Set compiler and linker.
-    if(NOT WIN32)
-      set(CMAKE_CXX_COMPILER ${HIP_HIPCC_EXECUTABLE})
-      set(CMAKE_CXX_LINKER   ${HIP_HIPCC_EXECUTABLE})
-      set(CMAKE_CXXFLAGS -D__HIP_PLATFORM_AMD__)
-      set(CMAKE_CFLAGS -D__HIP_PLATFORM_AMD__)
-    endif()
-    message("Current CMAKE_CXX_COMPILER (should show hipcc): " ${CMAKE_CXX_COMPILER})
-    message("Current CMAKE_CXX_LINKER (should show hipcc): " ${CMAKE_CXX_LINKER})
 endif()
+message("HIP_PATH: " ${HIP_PATH})
+set(CMAKE_MODULE_PATH "${HIP_PATH}/cmake" ${CMAKE_MODULE_PATH})
+find_package(HIP REQUIRED)
+if (HIP_FOUND)
+  message(STATUS "Found HIP: " ${HIP_VERSION})
+else()
+  message(FATAL_ERROR "Could not find HIP")
+endif()
+find_package(rocthrust REQUIRED)
+find_package(hipblas REQUIRED)
+find_package(hipsparse REQUIRED)
+find_package(rocrand REQUIRED)
+# Search for rocm in common locations
+list(APPEND CMAKE_PREFIX_PATH /opt/rocm/hip /opt/rocm /opt/rocm)
+list(APPEND HIP_PATH /opt/rocm/llvm/bin/)
+# Find HIP.
+# The user may override AMDGPU_TARGETS defined in the HIP config file
+# to select the AMDGPU archs to compile for.
+# ex. set(AMDGPU_TARGETS "gfx803;gfx900;gfx906")
+# Find OpenMP.
+#find_package(OpenMP REQUIRED)
+# Set compiler and linker.
+if(NOT WIN32)
+  set(CMAKE_CXX_COMPILER ${HIP_HIPCC_EXECUTABLE})
+  set(CMAKE_CXX_LINKER   ${HIP_HIPCC_EXECUTABLE})
+  set(CMAKE_CXXFLAGS -D__HIP_PLATFORM_AMD__)
+  set(CMAKE_CFLAGS -D__HIP_PLATFORM_AMD__)
+endif()
+message("Current CMAKE_CXX_COMPILER (should show hipcc): " ${CMAKE_CXX_COMPILER})
+message("Current CMAKE_CXX_LINKER (should show hipcc): " ${CMAKE_CXX_LINKER})
 
 if(APPLE)
   set(CMAKE_OSX_DEPLOYMENT_TARGET 13.1)
@@ -251,15 +243,22 @@ if(MSVC)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /arch:AVX2 /fp:fast")
 endif()
 
-set_source_files_properties(${CPP_FILES} PROPERTIES LANGUAGE CXX)
-message("Working on: " ${CPP_FILES})
-add_library(bitsandbytes SHARED ${SRC_FILES})
-target_include_directories(bitsandbytes PRIVATE ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/include /opt/rocm/include/hipblas /opt/rocm/include/rocblas /opt/rocm/include/hipblaslt /opt/rocm/include/hipsparse /opt/rocm/include/hipcub /opt/rocm/include/rocwmma)
-target_compile_features(bitsandbytes PUBLIC cxx_std_14)
-target_compile_definitions(bitsandbytes PUBLIC NO_CUBLASLT)
-target_include_directories(bitsandbytes PUBLIC csrc include)
-target_link_libraries(bitsandbytes PUBLIC hip::device roc::rocthrust roc::hipblas roc::hipsparse roc::rocrand roc::rocprim) 
-
+if (BUILD_HIP)
+    set_source_files_properties(${CPP_FILES} PROPERTIES LANGUAGE CXX)
+    message("Working on: " ${CPP_FILES})
+    add_library(bitsandbytes SHARED ${SRC_FILES})
+    target_include_directories(bitsandbytes PRIVATE ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/include /opt/rocm/include/hipblas /opt/rocm/include/rocblas /opt/rocm/include/hipblaslt /opt/rocm/include/hipsparse /opt/rocm/include/hipcub /opt/rocm/include/rocwmma)
+    target_compile_features(bitsandbytes PUBLIC cxx_std_14)
+    target_compile_definitions(bitsandbytes PUBLIC NO_CUBLASLT)
+    target_include_directories(bitsandbytes PUBLIC csrc include)
+    target_link_libraries(bitsandbytes PUBLIC hip::device roc::rocthrust roc::hipblas roc::hipsparse roc::rocrand roc::rocprim) 
+else()
+    set_source_files_properties(${CPP_FILES} PROPERTIES LANGUAGE CXX)
+    add_library(bitsandbytes SHARED ${SRC_FILES})
+    target_compile_features(bitsandbytes PUBLIC cxx_std_14)
+    target_include_directories(bitsandbytes PUBLIC csrc include)
+    target_link_libraries(bitsandbytes PUBLIC hip::device)
+endif()
 
 if(BUILD_CUDA)
     target_include_directories(bitsandbytes PUBLIC ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
