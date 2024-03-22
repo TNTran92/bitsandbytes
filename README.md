@@ -9,6 +9,8 @@ The current repo has been compiled and test run on the following system config
 Intel i7-13700K
 7900 XTX 24 GB
 64GB system memory
+ROCM version: 6.0.2
+Ubuntu 22.04
 
 ## Installation
 Clone this repo or download the source code
@@ -18,6 +20,12 @@ Install torch-rocm 6.0
 pip3 install --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/rocm6.0
 Install this packge 
 python3 -m pip install ./bitsandbytes.tar.gz 
+
+## ROCM Installation
+Only Ubuntu 22.04 was tested on. Windows WSL have not been tested on.
+Windows is not supported at this time.
+
+For instruction on installing ROCM, check https://rocm.docs.amd.com/projects/install-on-linux/en/latest/tutorial/install-overview.html
 
 # Original text from bitsandbytes repo
 
