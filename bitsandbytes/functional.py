@@ -3,17 +3,14 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 import ctypes as ct
+from functools import reduce  # Required in Python 3
 import itertools
 import operator
-import random
-import torch
-import itertools
-import math
-from scipy.stats import norm
-import numpy as np
-
-from functools import reduce  # Required in Python 3
 from typing import Tuple
+
+import numpy as np
+from scipy.stats import norm
+import torch
 from torch import Tensor
 
 from .cextension import COMPILED_WITH_CUDA, lib
@@ -263,7 +260,7 @@ def create_fp8_map(signed=True, exponent_bits=5, precision_bits=2, total_bits=8)
     # the exponent is biased to 2^(e-1) -1 == 0
     evalues = []
     pvalues = []
-    for i, val in enumerate(range(-((2**(exponent_bits-has_sign))), 2**(exponent_bits-has_sign), 1)):
+    for i, val in enumerate(range(-(2**(exponent_bits-has_sign)), 2**(exponent_bits-has_sign), 1)):
         evalues.append(2**val)
 
 
@@ -327,7 +324,7 @@ def create_dynamic_map(signed=True, max_exponent_bits=7, total_bits=8):
     if not signed:
         additional_items = 2 * additional_items
     for i in range(max_exponent_bits):
-        fraction_items = int((2 ** (i + non_sign_bits - max_exponent_bits) + 1 if signed else 2 ** (i + non_sign_bits - max_exponent_bits + 1) + 1))
+        fraction_items = int(2 ** (i + non_sign_bits - max_exponent_bits) + 1 if signed else 2 ** (i + non_sign_bits - max_exponent_bits + 1) + 1)
         boundaries = torch.linspace(0.1, 1, fraction_items)
         means = (boundaries[:-1] + boundaries[1:]) / 2.0
         data += ((10 ** (-(max_exponent_bits - 1) + i)) * means).tolist()
@@ -694,8 +691,8 @@ def dequantize_blockwise(
     if A.device.type != 'cpu':
         device = pre_call(A.device)
         code = code.to(A.device)
-        if blocksize not in [2048, 4096, 1024, 512, 256, 128, 64]:
-            raise ValueError(f"The blockwise of {blocksize} is not supported. Supported values: [2048, 4096, 1024, 512, 256, 128, 64]")
+        if blocksize not in [2048, 4096, 1024, 512, 256, 128]:
+            raise ValueError(f"The blockwise of {blocksize} is not supported. Supported values: [2048, 4096, 1024, 512, 256, 128]")
         is_on_gpu([A, absmax, out])
         if out.dtype == torch.float32:
             lib.cdequantize_blockwise_fp32(get_ptr(code), get_ptr(A), get_ptr(absmax), get_ptr(out), ct.c_int(blocksize), ct.c_int(A.numel()))
@@ -712,7 +709,7 @@ def dequantize_blockwise(
 
     return out
 
-def get_4bit_type(typename, device=None, blocksize=64):
+def get_4bit_type(typename, device=None, blocksize=128):
     if device is None: device = 'cuda'
     data = None
     if typename == 'nf4':
@@ -740,7 +737,7 @@ def get_4bit_type(typename, device=None, blocksize=64):
                     -0.04934812,  0., 0.04273164, 0.12934483, 0.21961274, 0.31675666,
                     0.42563882,  0.55496234,  0.72424863,  1.][::-1]
         else:
-            raise NotImplementedError(f'4-bit AbnormalFloats currently only support blocksize 64.')
+            raise NotImplementedError('4-bit AbnormalFloats currently only support blocksize 64.')
 
     if data is None:
         raise NotImplementedError(f'Typename {typename} not supported')
@@ -753,13 +750,13 @@ def get_4bit_type(typename, device=None, blocksize=64):
 
 
 
-def quantize_fp4(A: Tensor, absmax: Tensor = None, out: Tensor = None, blocksize=64, compress_statistics=False):
+def quantize_fp4(A: Tensor, absmax: Tensor = None, out: Tensor = None, blocksize=128, compress_statistics=False):
     return quantize_4bit(A, absmax, out, blocksize, compress_statistics, 'fp4')
 
-def quantize_nf4(A: Tensor, absmax: Tensor = None, out: Tensor = None, blocksize=64, compress_statistics=False):
+def quantize_nf4(A: Tensor, absmax: Tensor = None, out: Tensor = None, blocksize=128, compress_statistics=False):
     return quantize_4bit(A, absmax, out, blocksize, compress_statistics, 'nf4')
 
-def quantize_4bit(A: Tensor, absmax: Tensor = None, out: Tensor = None, blocksize=64, compress_statistics=False, quant_type='fp4') -> Tensor:
+def quantize_4bit(A: Tensor, absmax: Tensor = None, out: Tensor = None, blocksize=128, compress_statistics=False, quant_type='fp4') -> Tensor:
     """
     Quantize tensor A in blocks of 4-bit values.
 
@@ -802,7 +799,7 @@ def quantize_4bit(A: Tensor, absmax: Tensor = None, out: Tensor = None, blocksiz
     if out is None:
         out = torch.zeros(((n+1)//2, 1), dtype=torch.uint8, device=A.device)
 
-    assert blocksize in [4096, 2048, 1024, 512, 256, 128, 64]
+    assert blocksize in [4096, 2048, 1024, 512, 256, 128]
 
     prev_device = pre_call(A.device)
     is_on_gpu([A, out, absmax])
@@ -839,13 +836,13 @@ def quantize_4bit(A: Tensor, absmax: Tensor = None, out: Tensor = None, blocksiz
 
     return out, state
 
-def dequantize_fp4(A: Tensor, quant_state: Tuple[Tensor, Tensor] = None, absmax: Tensor = None, out: Tensor = None, blocksize: int = 64) -> Tensor:
+def dequantize_fp4(A: Tensor, quant_state: Tuple[Tensor, Tensor] = None, absmax: Tensor = None, out: Tensor = None, blocksize: int = 128) -> Tensor:
     return dequantize_4bit(A, quant_state, absmax, out, blocksize, 'fp4')
 
-def dequantize_nf4(A: Tensor, quant_state: Tuple[Tensor, Tensor] = None, absmax: Tensor = None, out: Tensor = None, blocksize: int = 64) -> Tensor:
+def dequantize_nf4(A: Tensor, quant_state: Tuple[Tensor, Tensor] = None, absmax: Tensor = None, out: Tensor = None, blocksize: int = 128) -> Tensor:
     return dequantize_4bit(A, quant_state, absmax, out, blocksize, 'nf4')
 
-def dequantize_4bit(A: Tensor,quant_state: Tuple[Tensor, Tensor] = None, absmax: Tensor = None, out: Tensor = None, blocksize: int = 64, quant_type='fp4') -> Tensor:
+def dequantize_4bit(A: Tensor,quant_state: Tuple[Tensor, Tensor] = None, absmax: Tensor = None, out: Tensor = None, blocksize: int = 128, quant_type='fp4') -> Tensor:
     """
     Dequantizes FP4 blockwise quantized values.
 
@@ -872,7 +869,7 @@ def dequantize_4bit(A: Tensor,quant_state: Tuple[Tensor, Tensor] = None, absmax:
     torch.Tensor:
         Dequantized tensor.
     """
-    if blocksize not in [2048, 4096, 1024, 512, 256, 128, 64]:
+    if blocksize not in [2048, 4096, 1024, 512, 256, 128]:
         raise ValueError(f"The blockwise of {blocksize} is not supported. Supported values: [2048, 4096, 1024, 512, 256, 128, 64]")
     if quant_type not in ['fp4', 'nf4']:
         raise NotImplementedError(f'4-bit quantization data type {quant_type} is not implemented.')
@@ -1462,10 +1459,10 @@ def gemv_4bit(
     prev_device = pre_call(A.device)
     #sout = check_matmul(A, B, out, transposed_A, transposed_B, expected_type=A.dtype)
     if state is None:
-        raise ValueError(f'state cannot None. gem_4bit( ) requires the state from quantize_4bit( )')
+        raise ValueError('state cannot None. gem_4bit( ) requires the state from quantize_4bit( )')
 
     if A.numel() != A.shape[-1]:
-        raise ValueError(f'Dimensions of A are invalid. Must be a vector with the leading dimensions of "1", e.g. [1, 1, 2048]')
+        raise ValueError('Dimensions of A are invalid. Must be a vector with the leading dimensions of "1", e.g. [1, 1, 2048]')
 
     Bshape = state[1]
     bout = Bshape[0]
