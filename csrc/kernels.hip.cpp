@@ -4,19 +4,21 @@
 // This source code is licensed under the MIT license found in the
 // LICENSE file in the root directory of this source tree.
 
-#include <kernels.cuh>
-#include <cub/block/block_radix_sort.cuh>
-#include <cub/warp/warp_reduce.cuh>
-#include <cub/block/block_load.cuh>
-#include <cub/block/block_discontinuity.cuh>
-#include <cub/block/block_store.cuh>
-#include <cub/block/block_reduce.cuh>
+#include "kernels.hip.h"
+#include <hipcub/block/block_radix_sort.hpp>
+#include <hipcub/warp/warp_reduce.hpp>
+#include <hipcub/block/block_load.hpp>
+#include <hipcub/block/block_discontinuity.hpp>
+#include <hipcub/block/block_store.hpp>
+#include <hipcub/block/block_reduce.hpp>
 #include <hipcub/hipcub.hpp>
-#include <math_constants.h>
+#include <hip/hip_math_constants.h>
 #include <thrust/host_vector.h>
 #include <thrust/device_vector.h>
-#include <mma.h>
+#define __syncwarp __syncthreads //TODO: HIP doesn't have this so just sync threads
 
+//#include <mma.h>
+#include <rocwmma.hpp>
 
 #define HLF_MAX 65504
 #define TH 1024
@@ -24,30 +26,31 @@
 #define NUM_BLOCK 4096
 
 
-// source: https://stackoverflow.com/questions/17399119/how-do-i-use-atomicmax-on-floating-point-values-in-cuda
-__device__ float atomicMax(float* address, float val) {
-  int* address_as_i = reinterpret_cast<int*>(address);
-  int old = *address_as_i, assumed;
-  do {
-    assumed = old;
-    old = atomicCAS(
-        reinterpret_cast<int*>(address), assumed,
-        __float_as_int(fmaxf(val, __int_as_float(assumed))));
-  } while (assumed != old);
-  return __int_as_float(old);
-}
+//source: https://stackoverflow.com/questions/17399119/how-do-i-use-atomicmax-on-floating-point-values-in-cuda
+//__device__ float atomicMax(float* address, float val) {
+  //  int* address_as_i = reinterpret_cast<int*>(address);
+  //  int old = *address_as_i, assumed;
+  //  do {
+    //    assumed = old;
+    //    old = atomicCAS(
+        //        reinterpret_cast<int*>(address), assumed,
+        //        __float_as_int(fmaxf(val, __int_as_float(assumed))));
+  //  } while (assumed != old);
+  //  return __int_as_float(old);
+//}
+//
+//__device__ float atomicMin(float* address, float val) {
+  //  int* address_as_i = reinterpret_cast<int*>(address);
+  //  int old = *address_as_i, assumed;
+  //  do {
+    //    assumed = old;
+    //    old = atomicCAS(
+        //        reinterpret_cast<int*>(address), assumed,
+        //        __float_as_int(fminf(val, __int_as_float(assumed))));
+  //  } while (assumed != old);
+  //  return __int_as_float(old);
+//}
 
-__device__ float atomicMin(float* address, float val) {
-  int* address_as_i = reinterpret_cast<int*>(address);
-  int old = *address_as_i, assumed;
-  do {
-    assumed = old;
-    old = atomicCAS(
-        reinterpret_cast<int*>(address), assumed,
-        __float_as_int(fminf(val, __int_as_float(assumed))));
-  } while (assumed != old);
-  return __int_as_float(old);
-}
 
 __device__ float dDequantizeFP4(unsigned char val, float absmax)
 {
@@ -654,6 +657,8 @@ __global__ void kEstimateQuantiles(T *__restrict__ const A, float *code, const f
       __syncthreads();
       for(int j = threadIdx.x; j < BLOCK_ESTIMATE; j+=blockDim.x)
           temp_storage.smem_qidx[j] = -1;
+
+__syncthreads();
 
       if(threadIdx.x < 256)
       {
@@ -3823,12 +3828,12 @@ template __global__ void kgemm_4bit_inference_naive<float, 128, 32>(int M, int N
 template __global__ void kExtractOutliers<COL_TURING>(char *A, int *idx, char *out, int idx_size, int rowsA, int colsA, int tiledRowsA, int tiledColsA);
 template __global__ void kExtractOutliers<COL_AMPERE>(char *A, int *idx, char *out, int idx_size, int rowsA, int colsA, int tiledRowsA, int tiledColsA);
 
-template __global__ void kspmm_coo_very_sparse_naive<half, 8, 16>(int *max_count, int *max_idx, int *offset_rowidx, int *rowidx, int *colidx, half *values, half *B, half *out, float *dequant_stats, int nnz, int rowsA, int rowsB, int colsB);
-template __global__ void kspmm_coo_very_sparse_naive<half, 16, 16>(int *max_count, int *max_idx, int *offset_rowidx, int *rowidx, int *colidx, half *values, half *B, half *out, float *dequant_stats, int nnz, int rowsA, int rowsB, int colsB);
-template __global__ void kspmm_coo_very_sparse_naive<half, 32, 16>(int *max_count, int *max_idx, int *offset_rowidx, int *rowidx, int *colidx, half *values, half *B, half *out, float *dequant_stats, int nnz, int rowsA, int rowsB, int colsB);
-template __global__ void kspmm_coo_very_sparse_naive<signed char, 8, 8>(int *max_count, int *max_idx, int *offset_rowidx, int *rowidx, int *colidx, half *values, signed char *B, half *out, float *dequant_stats, int nnz, int rowsA, int rowsB, int colsB);
-template __global__ void kspmm_coo_very_sparse_naive<signed char, 16, 8>(int *max_count, int *max_idx, int *offset_rowidx, int *rowidx, int *colidx, half *values, signed char *B, half *out, float *dequant_stats, int nnz, int rowsA, int rowsB, int colsB);
-template __global__ void kspmm_coo_very_sparse_naive<signed char, 32, 8>(int *max_count, int *max_idx, int *offset_rowidx, int *rowidx, int *colidx, half *values, signed char *B, half *out, float *dequant_stats, int nnz, int rowsA, int rowsB, int colsB);
+template __global__ void kspmm_coo_very_sparse_naive<half, 8, 16>(int *max_count, int *max_idx, int *offset_rowidx, int *rowidx, int *colidx, half *values, half *B, half *out, float * __restrict__ const dequant_stats, int nnz, int rowsA, int rowsB, int colsB);
+template __global__ void kspmm_coo_very_sparse_naive<half, 16, 16>(int *max_count, int *max_idx, int *offset_rowidx, int *rowidx, int *colidx, half *values, half *B, half *out, float * __restrict__ const dequant_stats, int nnz, int rowsA, int rowsB, int colsB);
+template __global__ void kspmm_coo_very_sparse_naive<half, 32, 16>(int *max_count, int *max_idx, int *offset_rowidx, int *rowidx, int *colidx, half *values, half *B, half *out, float * __restrict__ const dequant_stats, int nnz, int rowsA, int rowsB, int colsB);
+template __global__ void kspmm_coo_very_sparse_naive<signed char, 8, 8>(int *max_count, int *max_idx, int *offset_rowidx, int *rowidx, int *colidx, half *values, signed char *B, half *out, float * __restrict__ const dequant_stats, int nnz, int rowsA, int rowsB, int colsB);
+template __global__ void kspmm_coo_very_sparse_naive<signed char, 16, 8>(int *max_count, int *max_idx, int *offset_rowidx, int *rowidx, int *colidx, half *values, signed char *B, half *out, float * __restrict__ const dequant_stats, int nnz, int rowsA, int rowsB, int colsB);
+template __global__ void kspmm_coo_very_sparse_naive<signed char, 32, 8>(int *max_count, int *max_idx, int *offset_rowidx, int *rowidx, int *colidx, half *values, signed char *B, half *out, float * __restrict__ const dequant_stats, int nnz, int rowsA, int rowsB, int colsB);
 
 template __global__ void kTransformRowToFormat<256, 8, 32, 32*8, 0, COL32>(char *__restrict__ const A, char *out, int rows, int cols, int tiledCols, int outRows, int outCols);
 template __global__ void kTransformRowToFormat<256, 8, 32, 32*8, 1, COL32>(char *__restrict__ const A, char *out, int rows, int cols, int tiledCols, int outRows, int outCols);
@@ -3973,21 +3978,21 @@ MAKE_kQuantizeBlockwise(half,  1024, 4, 0, General8bit)
 MAKE_kQuantizeBlockwise(half,   512, 2, 0, General8bit)
 MAKE_kQuantizeBlockwise(half,   256, 2, 0, General8bit)
 MAKE_kQuantizeBlockwise(half,   128, 2, 0, General8bit)
-MAKE_kQuantizeBlockwise(half,    64, 2, 0, General8bit)
+//MAKE_kQuantizeBlockwise(half,    64, 2, 0, General8bit)
 MAKE_kQuantizeBlockwise(half,  4096, 4, 0, FP4)
 MAKE_kQuantizeBlockwise(half,  2048, 4, 0, FP4)
 MAKE_kQuantizeBlockwise(half,  1024, 4, 0, FP4)
 MAKE_kQuantizeBlockwise(half,   512, 2, 0, FP4)
 MAKE_kQuantizeBlockwise(half,   256, 2, 0, FP4)
 MAKE_kQuantizeBlockwise(half,   128, 2, 0, FP4)
-MAKE_kQuantizeBlockwise(half,    64, 2, 0, FP4)
+//MAKE_kQuantizeBlockwise(half,    64, 2, 0, FP4)
 MAKE_kQuantizeBlockwise(half,  4096, 4, 0, NF4)
 MAKE_kQuantizeBlockwise(half,  2048, 4, 0, NF4)
 MAKE_kQuantizeBlockwise(half,  1024, 4, 0, NF4)
 MAKE_kQuantizeBlockwise(half,   512, 2, 0, NF4)
 MAKE_kQuantizeBlockwise(half,   256, 2, 0, NF4)
 MAKE_kQuantizeBlockwise(half,   128, 2, 0, NF4)
-MAKE_kQuantizeBlockwise(half,    64, 2, 0, NF4)
+//MAKE_kQuantizeBlockwise(half,    64, 2, 0, NF4)
 MAKE_kQuantizeBlockwise(float, 4096, 4, 0, General8bit)
 MAKE_kQuantizeBlockwise(float, 4096, 4, 1, General8bit)
 MAKE_kQuantizeBlockwise(float, 2048, 4, 0, General8bit)
@@ -3995,21 +4000,21 @@ MAKE_kQuantizeBlockwise(float, 1024, 4, 0, General8bit)
 MAKE_kQuantizeBlockwise(float,  512, 2, 0, General8bit)
 MAKE_kQuantizeBlockwise(float,  256, 2, 0, General8bit)
 MAKE_kQuantizeBlockwise(float,  128, 2, 0, General8bit)
-MAKE_kQuantizeBlockwise(float,   64, 2, 0, General8bit)
+//MAKE_kQuantizeBlockwise(float,   64, 2, 0, General8bit)
 MAKE_kQuantizeBlockwise(float, 4096, 4, 0, FP4)
 MAKE_kQuantizeBlockwise(float, 2048, 4, 0, FP4)
 MAKE_kQuantizeBlockwise(float, 1024, 4, 0, FP4)
 MAKE_kQuantizeBlockwise(float,  512, 2, 0, FP4)
 MAKE_kQuantizeBlockwise(float,  256, 2, 0, FP4)
 MAKE_kQuantizeBlockwise(float,  128, 2, 0, FP4)
-MAKE_kQuantizeBlockwise(float,   64, 2, 0, FP4)
+//MAKE_kQuantizeBlockwise(float,   64, 2, 0, FP4)
 MAKE_kQuantizeBlockwise(float, 4096, 4, 0, NF4)
 MAKE_kQuantizeBlockwise(float, 2048, 4, 0, NF4)
 MAKE_kQuantizeBlockwise(float, 1024, 4, 0, NF4)
 MAKE_kQuantizeBlockwise(float,  512, 2, 0, NF4)
 MAKE_kQuantizeBlockwise(float,  256, 2, 0, NF4)
 MAKE_kQuantizeBlockwise(float,  128, 2, 0, NF4)
-MAKE_kQuantizeBlockwise(float,   64, 2, 0, NF4)
+//MAKE_kQuantizeBlockwise(float,   64, 2, 0, NF4)
 
 MAKE_kQuantizeBlockwise(hip_bfloat16, 4096, 4, 0, General8bit)
 MAKE_kQuantizeBlockwise(hip_bfloat16, 4096, 4, 1, General8bit)
@@ -4018,21 +4023,21 @@ MAKE_kQuantizeBlockwise(hip_bfloat16, 1024, 4, 0, General8bit)
 MAKE_kQuantizeBlockwise(hip_bfloat16,  512, 2, 0, General8bit)
 MAKE_kQuantizeBlockwise(hip_bfloat16,  256, 2, 0, General8bit)
 MAKE_kQuantizeBlockwise(hip_bfloat16,  128, 2, 0, General8bit)
-MAKE_kQuantizeBlockwise(hip_bfloat16,   64, 2, 0, General8bit)
+//MAKE_kQuantizeBlockwise(hip_bfloat16,   64, 2, 0, General8bit)
 MAKE_kQuantizeBlockwise(hip_bfloat16, 4096, 4, 0, FP4)
 MAKE_kQuantizeBlockwise(hip_bfloat16, 2048, 4, 0, FP4)
 MAKE_kQuantizeBlockwise(hip_bfloat16, 1024, 4, 0, FP4)
 MAKE_kQuantizeBlockwise(hip_bfloat16,  512, 2, 0, FP4)
 MAKE_kQuantizeBlockwise(hip_bfloat16,  256, 2, 0, FP4)
 MAKE_kQuantizeBlockwise(hip_bfloat16,  128, 2, 0, FP4)
-MAKE_kQuantizeBlockwise(hip_bfloat16,   64, 2, 0, FP4)
+//MAKE_kQuantizeBlockwise(hip_bfloat16,   64, 2, 0, FP4)
 MAKE_kQuantizeBlockwise(hip_bfloat16, 4096, 4, 0, NF4)
 MAKE_kQuantizeBlockwise(hip_bfloat16, 2048, 4, 0, NF4)
 MAKE_kQuantizeBlockwise(hip_bfloat16, 1024, 4, 0, NF4)
 MAKE_kQuantizeBlockwise(hip_bfloat16,  512, 2, 0, NF4)
 MAKE_kQuantizeBlockwise(hip_bfloat16,  256, 2, 0, NF4)
 MAKE_kQuantizeBlockwise(hip_bfloat16,  128, 2, 0, NF4)
-MAKE_kQuantizeBlockwise(hip_bfloat16,   64, 2, 0, NF4)
+//MAKE_kQuantizeBlockwise(hip_bfloat16,   64, 2, 0, NF4)
 
 template __global__ void kDequantizeBlockwise<half, 512, 64, 8, FP4>(float *code, unsigned char * A, float * absmax, half *out, const int blocksize, const int n);
 template __global__ void kDequantizeBlockwise<half, 512, 64, 8, General8bit>(float *code, unsigned char * A, float * absmax, half *out, const int blocksize, const int n);

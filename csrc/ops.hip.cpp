@@ -2,14 +2,18 @@
 //
 // This source code is licensed under the MIT license found in the
 // LICENSE file in the root directory of this source tree.
-
-#include <ops.cuh>
-#include <kernels.cuh>
-#include <cub/device/device_scan.cuh>
+#include "ops.hip.h"
+#include "kernels.hip.h"
+#include <hipcub/device/device_scan.hpp>
+#define HIPBLAS_V2
+#include <hipblas.h>
+#include <hipblaslt.h>
 #include <limits>
 #include <BinSearch.h>
 #include <cassert>
-#include <common.h>
+#include <common.hip.h>
+
+#define ERR_NOT_IMPLEMENTED 100
 
 
 using namespace BinSearch;
@@ -21,33 +25,33 @@ void histogramScatterAdd2D(float* histogram, int *index1, int *index2, float *sr
   int threads = 512;
   int num_blocks = n/threads;
   num_blocks = n % threads == 0 ? num_blocks : num_blocks + 1;
-  kHistogramScatterAdd2D<<<num_blocks, 512>>>(histogram, index1, index2, src, maxidx1, n);
-  CUDA_CHECK_RETURN(hipPeekAtLastError());
+  kHistogramScatterAdd2D<<<dim3(num_blocks), dim3(512), 0, 0>>>(histogram, index1, index2, src, maxidx1, n);
+  HIP_CHECK_RETURN(hipPeekAtLastError());
 }
 
 template <typename T> void estimateQuantiles(T *A, float *code, float offset, int n)
 {
   int num_blocks = n/4096;
   num_blocks = n % 4096 == 0 ? num_blocks : num_blocks + 1;
-	CUDA_CHECK_RETURN(hipMemset(code, 0, 256*sizeof(float)));
-  kEstimateQuantiles<T><<<num_blocks, 512>>>(A, code, offset, std::numeric_limits<T>::max(), n);
-  CUDA_CHECK_RETURN(hipPeekAtLastError());
+	HIP_CHECK_RETURN(hipMemset(code, 0, 256*sizeof(float)));
+  kEstimateQuantiles<T><<<dim3(num_blocks), dim3(512), 0, 0>>>(A, code, offset, std::numeric_limits<T>::max(), n);
+  HIP_CHECK_RETURN(hipPeekAtLastError());
 }
 
 void quantize(float *code, float *A, unsigned char *out, int n)
 {
   int num_blocks = n/1024;
   num_blocks = n % 1024 == 0 ? num_blocks : num_blocks + 1;
-  kQuantize<<<num_blocks, 1024>>>(code, A, out, n);
-  CUDA_CHECK_RETURN(hipPeekAtLastError());
+  kQuantize<<<dim3(num_blocks), dim3(1024), 0, 0>>>(code, A, out, n);
+  HIP_CHECK_RETURN(hipPeekAtLastError());
 }
 
 void dequantize(float *code, unsigned char *A, float *out, int n)
 {
   int num_blocks = n/1024;
   num_blocks = n % 1024 == 0 ? num_blocks : num_blocks + 1;
-  kDequantize<<<num_blocks, 1024>>>(code, A, out, n);
-  CUDA_CHECK_RETURN(hipPeekAtLastError());
+  kDequantize<<<dim3(num_blocks), dim3(1024), 0, 0>>>(code, A, out, n);
+  HIP_CHECK_RETURN(hipPeekAtLastError());
 }
 
 template <typename T, int STOCHASTIC, int DATA_TYPE> void quantizeBlockwise(float * code, T *A, float *absmax, unsigned char *out, float *rand, int rand_offset, int blocksize, const int n)
@@ -56,22 +60,22 @@ template <typename T, int STOCHASTIC, int DATA_TYPE> void quantizeBlockwise(floa
   num_blocks = n % blocksize == 0 ? num_blocks : num_blocks + 1;
 
   if(blocksize == 4096)
-    kQuantizeBlockwise<T, 4096, 4, STOCHASTIC, 0><<<num_blocks, 1024>>>(code, A, absmax, out, rand, rand_offset, n);
+    kQuantizeBlockwise<T, 4096, 4, STOCHASTIC, 0><<<dim3(num_blocks), dim3(1024), 0, 0>>>(code, A, absmax, out, rand, rand_offset, n);
   else if(blocksize == 2048)
-    kQuantizeBlockwise<T, 2048, 4, 0, DATA_TYPE><<<num_blocks, 512>>>(code, A, absmax, out, rand, rand_offset, n);
+    kQuantizeBlockwise<T, 2048, 4, 0, DATA_TYPE><<<dim3(num_blocks), dim3(512), 0, 0>>>(code, A, absmax, out, rand, rand_offset, n);
   else if(blocksize == 1024)
-    kQuantizeBlockwise<T, 1024, 4, 0, DATA_TYPE><<<num_blocks, 256>>>(code, A, absmax, out, rand, rand_offset, n);
+    kQuantizeBlockwise<T, 1024, 4, 0, DATA_TYPE><<<dim3(num_blocks), dim3(256), 0, 0>>>(code, A, absmax, out, rand, rand_offset, n);
   else if(blocksize == 512)
-    kQuantizeBlockwise<T, 512, 2, 0, DATA_TYPE><<<num_blocks, 256>>>(code, A, absmax, out, rand, rand_offset, n);
+    kQuantizeBlockwise<T, 512, 2, 0, DATA_TYPE><<<dim3(num_blocks), dim3(256), 0, 0>>>(code, A, absmax, out, rand, rand_offset, n);
   else if(blocksize == 256)
-    kQuantizeBlockwise<T, 256, 2, 0, DATA_TYPE><<<num_blocks, 128>>>(code, A, absmax, out, rand, rand_offset, n);
+    kQuantizeBlockwise<T, 256, 2, 0, DATA_TYPE><<<dim3(num_blocks), dim3(128), 0, 0>>>(code, A, absmax, out, rand, rand_offset, n);
   else if(blocksize == 128)
-    kQuantizeBlockwise<T, 128, 2, 0, DATA_TYPE><<<num_blocks, 64>>>(code, A, absmax, out, rand, rand_offset, n);
-  else if(blocksize == 64)
-    kQuantizeBlockwise<T, 64, 2, 0, DATA_TYPE><<<num_blocks, 32>>>(code, A, absmax, out, rand, rand_offset, n);
+    kQuantizeBlockwise<T, 128, 2, 0, DATA_TYPE><<<dim3(num_blocks), dim3(64), 0, 0>>>(code, A, absmax, out, rand, rand_offset, n);
+  //else if(blocksize == 64)
+    //  kQuantizeBlockwise<T, 64, 2, 0, DATA_TYPE><<<dim3(num_blocks), dim3(32), 0, 0>>>(code, A, absmax, out, rand, rand_offset, n);
 
 
-  CUDA_CHECK_RETURN(hipPeekAtLastError());
+  HIP_CHECK_RETURN(hipPeekAtLastError());
 }
 
 template<typename T, int DATA_TYPE> void dequantizeBlockwise(float *code, unsigned char *A, float *absmax, T *out, int blocksize, const int n)
@@ -81,11 +85,11 @@ template<typename T, int DATA_TYPE> void dequantizeBlockwise(float *code, unsign
   int tile_size = (DATA_TYPE > 0) ? 1024 : 512;
 
   if(DATA_TYPE > 0)
-    kDequantizeBlockwise<T, 512, 64, 8, DATA_TYPE><<<(n+tile_size-1)/tile_size, 64>>>(code, A, absmax, out, blocksize/2, n);
+    kDequantizeBlockwise<T, 512, 64, 8, DATA_TYPE><<<dim3((n+tile_size-1)/tile_size), dim3(64), 0, 0>>>(code, A, absmax, out, blocksize/2, n);
   else
-    kDequantizeBlockwise<T, 512, 64, 8, DATA_TYPE><<<(n+tile_size-1)/tile_size, 64>>>(code, A, absmax, out, blocksize, n);
+    kDequantizeBlockwise<T, 512, 64, 8, DATA_TYPE><<<dim3((n+tile_size-1)/tile_size), dim3(64), 0, 0>>>(code, A, absmax, out, blocksize, n);
 
-  CUDA_CHECK_RETURN(hipPeekAtLastError());
+  HIP_CHECK_RETURN(hipPeekAtLastError());
 }
 
 
@@ -109,36 +113,36 @@ template<typename T, int OPTIMIZER> void optimizer32bit(T* g, T* p,
 		case ADAM:
       if(max_unorm > 0.0f)
 			{
-				CUDA_CHECK_RETURN(hipMemset(unorm, 0, 1*sizeof(float)));
-        kPreconditionOptimizer32bit2State<T, OPTIMIZER, 4096, 8><<<num_blocks, 512>>>(g, p, state1, state2, unorm, beta1, beta2, eps, weight_decay, step, lr, gnorm_scale, n);
-        CUDA_CHECK_RETURN(hipPeekAtLastError());
+				HIP_CHECK_RETURN(hipMemset(unorm, 0, 1*sizeof(float)));
+        kPreconditionOptimizer32bit2State<T, OPTIMIZER, 4096, 8><<<dim3(num_blocks), dim3(512), 0, 0>>>(g, p, state1, state2, unorm, beta1, beta2, eps, weight_decay, step, lr, gnorm_scale, n);
+        HIP_CHECK_RETURN(hipPeekAtLastError());
       }
-			kOptimizer32bit2State<T, OPTIMIZER><<<num_blocks, 1024>>>(g, p, state1, state2, unorm, max_unorm, param_norm, beta1, beta2, eps, weight_decay, step, lr, gnorm_scale, skip_zeros, n);
-      CUDA_CHECK_RETURN(hipPeekAtLastError());
+			kOptimizer32bit2State<T, OPTIMIZER><<<dim3(num_blocks), dim3(1024), 0, 0>>>(g, p, state1, state2, unorm, max_unorm, param_norm, beta1, beta2, eps, weight_decay, step, lr, gnorm_scale, skip_zeros, n);
+      HIP_CHECK_RETURN(hipPeekAtLastError());
 			break;
 		case MOMENTUM:
     case RMSPROP:
     case ADAGRAD:
       if(max_unorm > 0.0f)
 			{
-				CUDA_CHECK_RETURN(hipMemset(unorm, 0, 1*sizeof(float)));
-				kPreconditionOptimizer32bit1State<T, OPTIMIZER, 4096, 8><<<num_blocks, 512>>>(g, p, state1, unorm, beta1, beta2, eps, weight_decay, step, lr, gnorm_scale, n);
-        CUDA_CHECK_RETURN(hipPeekAtLastError());
+				HIP_CHECK_RETURN(hipMemset(unorm, 0, 1*sizeof(float)));
+				kPreconditionOptimizer32bit1State<T, OPTIMIZER, 4096, 8><<<dim3(num_blocks), dim3(512), 0, 0>>>(g, p, state1, unorm, beta1, beta2, eps, weight_decay, step, lr, gnorm_scale, n);
+        HIP_CHECK_RETURN(hipPeekAtLastError());
 			}
 
-			kOptimizer32bit1State<T, OPTIMIZER><<<num_blocks, 1024>>>(g, p, state1, unorm, max_unorm, param_norm, beta1, beta2, eps, weight_decay, step, lr, gnorm_scale, skip_zeros, n);
-      CUDA_CHECK_RETURN(hipPeekAtLastError());
+			kOptimizer32bit1State<T, OPTIMIZER><<<dim3(num_blocks), dim3(1024), 0, 0>>>(g, p, state1, unorm, max_unorm, param_norm, beta1, beta2, eps, weight_decay, step, lr, gnorm_scale, skip_zeros, n);
+      HIP_CHECK_RETURN(hipPeekAtLastError());
 			break;
     case LION:
       // in lion, the momentum update after the parameter update
-      kOptimizer32bit1State<T, OPTIMIZER><<<num_blocks, 1024>>>(g, p, state1, unorm, max_unorm, param_norm, beta1, beta2, eps, weight_decay, step, lr, gnorm_scale, skip_zeros, n);
-      CUDA_CHECK_RETURN(hipPeekAtLastError());
+      kOptimizer32bit1State<T, OPTIMIZER><<<dim3(num_blocks), dim3(1024), 0, 0>>>(g, p, state1, unorm, max_unorm, param_norm, beta1, beta2, eps, weight_decay, step, lr, gnorm_scale, skip_zeros, n);
+      HIP_CHECK_RETURN(hipPeekAtLastError());
 
       if(max_unorm > 0.0f)
       {
-        CUDA_CHECK_RETURN(hipMemset(unorm, 0, 1*sizeof(float)));
-        kPreconditionOptimizer32bit1State<T, OPTIMIZER, 4096, 8><<<num_blocks, 512>>>(g, p, state1, unorm, beta1, beta2, eps, weight_decay, step, lr, gnorm_scale, n);
-        CUDA_CHECK_RETURN(hipPeekAtLastError());
+        HIP_CHECK_RETURN(hipMemset(unorm, 0, 1*sizeof(float)));
+        kPreconditionOptimizer32bit1State<T, OPTIMIZER, 4096, 8><<<dim3(num_blocks), dim3(512), 0, 0>>>(g, p, state1, unorm, beta1, beta2, eps, weight_decay, step, lr, gnorm_scale, n);
+        HIP_CHECK_RETURN(hipPeekAtLastError());
       }
       break;
 	}
@@ -157,38 +161,38 @@ template<typename T, int OPTIMIZER> void optimizerStatic8bit(T* p, T* g,
   int num_blocks = n/4096;
   num_blocks = n % 4096 == 0 ? num_blocks : num_blocks + 1;
 
-  if(max_unorm > 0.0f){ CUDA_CHECK_RETURN(hipMemset(unorm, 0, 1*sizeof(float))); }
+  if(max_unorm > 0.0f){ HIP_CHECK_RETURN(hipMemset(unorm, 0, 1*sizeof(float))); }
 
 	switch(OPTIMIZER)
 	{
 		case ADAM:
-			CUDA_CHECK_RETURN(hipMemset(new_max1, 0, 1*sizeof(float)));
-			CUDA_CHECK_RETURN(hipMemset(new_max2, 0, 1*sizeof(float)));
-			kPreconditionOptimizerStatic8bit2State<T, OPTIMIZER><<<num_blocks, 256>>>(p, g, state1, state2, unorm, beta1, beta2, eps, step, quantiles1, quantiles2, max1, max2, new_max1, new_max2, gnorm_scale, n);
-			CUDA_CHECK_RETURN(hipPeekAtLastError());
-			kOptimizerStatic8bit2State<T, OPTIMIZER><<<num_blocks, 1024>>>(p, g, state1, state2, unorm, max_unorm, param_norm, beta1, beta2, eps, step, lr,
+			HIP_CHECK_RETURN(hipMemset(new_max1, 0, 1*sizeof(float)));
+			HIP_CHECK_RETURN(hipMemset(new_max2, 0, 1*sizeof(float)));
+			kPreconditionOptimizerStatic8bit2State<T, OPTIMIZER><<<dim3(num_blocks), dim3(256), 0, 0>>>(p, g, state1, state2, unorm, beta1, beta2, eps, step, quantiles1, quantiles2, max1, max2, new_max1, new_max2, gnorm_scale, n);
+			HIP_CHECK_RETURN(hipPeekAtLastError());
+			kOptimizerStatic8bit2State<T, OPTIMIZER><<<dim3(num_blocks), dim3(1024), 0, 0>>>(p, g, state1, state2, unorm, max_unorm, param_norm, beta1, beta2, eps, step, lr,
 																														quantiles1, quantiles2, max1, max2, new_max1, new_max2, weight_decay, gnorm_scale, n);
-			CUDA_CHECK_RETURN(hipPeekAtLastError());
+			HIP_CHECK_RETURN(hipPeekAtLastError());
 		break;
 		case MOMENTUM:
     case RMSPROP:
     case ADAGRAD:
-			CUDA_CHECK_RETURN(hipMemset(new_max1, 0, 1*sizeof(float)));
-			kPreconditionOptimizerStatic8bit1State<T, OPTIMIZER><<<num_blocks, 256>>>(p, g, state1, unorm, beta1, beta2, eps, step, quantiles1, max1, new_max1, weight_decay, gnorm_scale, n);
-			CUDA_CHECK_RETURN(hipPeekAtLastError());
-			kOptimizerStatic8bit1State<T, OPTIMIZER><<<num_blocks, 1024>>>(p, g, state1, unorm, max_unorm, param_norm, beta1, beta2, eps, step, lr,
+			HIP_CHECK_RETURN(hipMemset(new_max1, 0, 1*sizeof(float)));
+			kPreconditionOptimizerStatic8bit1State<T, OPTIMIZER><<<dim3(num_blocks), dim3(256), 0, 0>>>(p, g, state1, unorm, beta1, beta2, eps, step, quantiles1, max1, new_max1, weight_decay, gnorm_scale, n);
+			HIP_CHECK_RETURN(hipPeekAtLastError());
+			kOptimizerStatic8bit1State<T, OPTIMIZER><<<dim3(num_blocks), dim3(1024), 0, 0>>>(p, g, state1, unorm, max_unorm, param_norm, beta1, beta2, eps, step, lr,
 																														quantiles1, max1, new_max1, weight_decay, gnorm_scale, n);
-			CUDA_CHECK_RETURN(hipPeekAtLastError());
+			HIP_CHECK_RETURN(hipPeekAtLastError());
 			break;
     case LION:
       // in lion, the momentum update happens after the parameter update
-      kOptimizerStatic8bit1State<T, OPTIMIZER><<<num_blocks, 1024>>>(p, g, state1, unorm, max_unorm, param_norm, beta1, beta2, eps, step, lr,
+      kOptimizerStatic8bit1State<T, OPTIMIZER><<<dim3(num_blocks), dim3(1024), 0, 0>>>(p, g, state1, unorm, max_unorm, param_norm, beta1, beta2, eps, step, lr,
                                                             quantiles1, max1, new_max1, weight_decay, gnorm_scale, n);
-      CUDA_CHECK_RETURN(hipPeekAtLastError());
+      HIP_CHECK_RETURN(hipPeekAtLastError());
 
-      CUDA_CHECK_RETURN(hipMemset(new_max1, 0, 1*sizeof(float)));
-      kPreconditionOptimizerStatic8bit1State<T, OPTIMIZER><<<num_blocks, 256>>>(p, g, state1, unorm, beta1, beta2, eps, step, quantiles1, max1, new_max1, weight_decay, gnorm_scale, n);
-      CUDA_CHECK_RETURN(hipPeekAtLastError());
+      HIP_CHECK_RETURN(hipMemset(new_max1, 0, 1*sizeof(float)));
+      kPreconditionOptimizerStatic8bit1State<T, OPTIMIZER><<<dim3(num_blocks), dim3(256), 0, 0>>>(p, g, state1, unorm, beta1, beta2, eps, step, quantiles1, max1, new_max1, weight_decay, gnorm_scale, n);
+      HIP_CHECK_RETURN(hipPeekAtLastError());
       break;
 		default:
 			break;
@@ -211,9 +215,9 @@ template<typename T, int OPTIMIZER> void optimizerStatic8bitBlockwise(T* p, T* g
 		case ADAM:
 			num_blocks = n/BLOCKSIZE_2STATE;
 			num_blocks = n % BLOCKSIZE_2STATE == 0 ? num_blocks : num_blocks + 1;
-			kOptimizerStatic8bit2StateBlockwise<T, OPTIMIZER, BLOCKSIZE_2STATE, NUM_2STATE><<<num_blocks, BLOCKSIZE_2STATE/NUM_2STATE>>>(p, g, state1, state2, beta1, beta2, eps, step, lr,
+			kOptimizerStatic8bit2StateBlockwise<T, OPTIMIZER, BLOCKSIZE_2STATE, NUM_2STATE><<<dim3(num_blocks), dim3(BLOCKSIZE_2STATE/NUM_2STATE), 0, 0>>>(p, g, state1, state2, beta1, beta2, eps, step, lr,
 																														quantiles1, quantiles2, absmax1, absmax2, weight_decay, gnorm_scale, skip_zeros, n);
-			CUDA_CHECK_RETURN(hipPeekAtLastError());
+			HIP_CHECK_RETURN(hipPeekAtLastError());
 		break;
 		case MOMENTUM:
 		case RMSPROP:
@@ -221,9 +225,9 @@ template<typename T, int OPTIMIZER> void optimizerStatic8bitBlockwise(T* p, T* g
     case LION:
 			num_blocks = n/BLOCKSIZE_1STATE;
 			num_blocks = n % BLOCKSIZE_1STATE == 0 ? num_blocks : num_blocks + 1;
-			kOptimizerStatic8bit1StateBlockwise<T, OPTIMIZER, BLOCKSIZE_1STATE, NUM_1STATE><<<num_blocks, BLOCKSIZE_1STATE/NUM_1STATE>>>(p, g, state1, beta1, beta2, eps, step, lr,
+			kOptimizerStatic8bit1StateBlockwise<T, OPTIMIZER, BLOCKSIZE_1STATE, NUM_1STATE><<<dim3(num_blocks), dim3(BLOCKSIZE_1STATE/NUM_1STATE), 0, 0>>>(p, g, state1, beta1, beta2, eps, step, lr,
 																														quantiles1, absmax1, weight_decay, gnorm_scale, skip_zeros, n);
-			CUDA_CHECK_RETURN(hipPeekAtLastError());
+			HIP_CHECK_RETURN(hipPeekAtLastError());
 		break;
 	}
 }
@@ -234,9 +238,9 @@ template<typename T> void percentileClipping(T * g, float *gnorm_vec, int step, 
 {
   int num_blocks = n/2048;
   num_blocks = n % 2048 == 0 ? num_blocks : num_blocks + 1;
-	CUDA_CHECK_RETURN(hipMemset(&gnorm_vec[step % 100], 0, 1*sizeof(float)));
-  kPercentileClipping<T, 2048, 4><<<num_blocks, 512>>>(g, gnorm_vec, step, n);
-  CUDA_CHECK_RETURN(hipPeekAtLastError());
+	HIP_CHECK_RETURN(hipMemset(&gnorm_vec[step % 100], 0, 1*sizeof(float)));
+  kPercentileClipping<T, 2048, 4><<<dim3(num_blocks), dim3(512), 0, 0>>>(g, gnorm_vec, step, n);
+  HIP_CHECK_RETURN(hipPeekAtLastError());
 }
 
 void gemmex(Context *context, bool transposeA, bool transposeB, int m, int n, int k, void *A, void *B, void *C, int lda, int ldb, int ldc)
@@ -247,13 +251,13 @@ void gemmex(Context *context, bool transposeA, bool transposeB, int m, int n, in
   const void * beta = &fbeta;
 	hipblasStatus_t status;
 
-			status = hipblasGemmEx_v2(context->m_handle,
+			status = hipblasGemmEx(context->m_handle,
 					transposeA ? HIPBLAS_OP_T : HIPBLAS_OP_N,
 					transposeB ? HIPBLAS_OP_T : HIPBLAS_OP_N,
 					m, n,	k,
-					alpha, A, HIP_R_8I, lda, B, HIP_R_8I, ldb, beta,
-					C, HIP_R_32I, ldc,
-          HIP_R_32I, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
+					alpha, A, HIPBLAS_R_8I, lda, B, HIPBLAS_R_8I, ldb, beta,
+					C, HIPBLAS_R_32I, ldc,
+          HIPBLAS_R_32I, HIPBLAS_GEMM_DEFAULT);
 
     if (status != HIPBLAS_STATUS_SUCCESS)
     {
@@ -277,13 +281,13 @@ void strided_gemmex(Context *context, bool transposeA, bool transposeB, int m, i
   //printf("%i %i %i\n", strideA, strideB, strideC);
   //printf("%i\n", batchCount);
 
-			status = hipblasGemmStridedBatchedEx_v2(context->m_handle,
+			status = hipblasGemmStridedBatchedEx(context->m_handle,
 					transposeA ? HIPBLAS_OP_T : HIPBLAS_OP_N,
 					transposeB ? HIPBLAS_OP_T : HIPBLAS_OP_N,
 					m, n,	k,
-					alpha, A, HIP_R_8I, lda, (long long int)strideA, B, HIP_R_8I, ldb, (long long int)strideB, beta,
-					C, HIP_R_32I, ldc, (long long int)strideC, batchCount,
-          HIP_R_32I, HIPBLAS_GEMM_DEFAULT);
+					alpha, A, HIPBLAS_R_8I, lda, (long long int)strideA, B, HIPBLAS_R_8I, ldb, (long long int)strideB, beta,
+					C, HIPBLAS_R_32I, ldc, (long long int)strideC, batchCount,
+          HIPBLAS_R_32I, HIPBLAS_GEMM_DEFAULT);
 
     if (status != HIPBLAS_STATUS_SUCCESS)
     {
@@ -296,45 +300,45 @@ int roundoff(int v, int d) {
     return (v + d - 1) / d * d;
 }
 
-
 #ifdef NO_CUBLASLT
 #else
-template<int ORDER> cublasLtOrder_t get_order()
+
+template<int ORDER> hipblasLtOrder_t get_order()
 {
 	switch(ORDER)
 	{
 		case ROW:
-      return CUBLASLT_ORDER_ROW;
+      return HIPBLASLT_ORDER_ROW;
 			break;
     case COL:
-      return CUBLASLT_ORDER_COL;
+      return HIPBLASLT_ORDER_COL;
       break;
     case COL32:
-      return CUBLASLT_ORDER_COL32;
+      return HIPBLASLT_ORDER_COL;
       break;
     case COL_TURING:
-      return CUBLASLT_ORDER_COL4_4R2_8C;
+      return HIPBLASLT_ORDER_COL;
       break;
     case COL_AMPERE:
-      return CUBLASLT_ORDER_COL32_2R_4R4;
+      return HIPBLASLT_ORDER_COL;
       break;
 		default:
 			break;
   }
-
-	return CUBLASLT_ORDER_ROW;
+return HIPBLASLT_ORDER_ROW;
 }
 
-template cublasLtOrder_t get_order<ROW>();
-template cublasLtOrder_t get_order<COL>();
-template cublasLtOrder_t get_order<COL32>();
-template cublasLtOrder_t get_order<COL_TURING>();
-template cublasLtOrder_t get_order<COL_AMPERE>();
-#endif
+template hipblasLtOrder_t get_order<ROW>();
+template hipblasLtOrder_t get_order<COL>();
 
+template hipblasLtOrder_t get_order<COL32>();
+template hipblasLtOrder_t get_order<COL_TURING>();
+template hipblasLtOrder_t get_order<COL_AMPERE>();
+#endif
 
 template<int ORDER> int get_leading_dim(int dim1, int dim2)
 {
+
 	switch(ORDER)
 	{
 		case ROW:
@@ -359,35 +363,35 @@ template<int ORDER> int get_leading_dim(int dim1, int dim2)
 			break;
   }
 }
-
 template int get_leading_dim<ROW>(int dim1, int dim2);
 template int get_leading_dim<COL>(int dim1, int dim2);
-template int get_leading_dim<COL32>(int dim1, int dim2);
 
-template <typename T, int SRC, int TARGET, bool transpose, int DTYPE> void transform(cublasLtHandle_t ltHandle, T *A, T *out, int dim1, int dim2)
+template int get_leading_dim<COL32>(int dim1, int dim2);
+template <typename T, int SRC, int TARGET, bool transpose, int DTYPE> void transform(hipblasLtHandle_t ltHandle, T *A, T *out, int dim1, int dim2)
 {
+
 #ifdef NO_CUBLASLT
 #else
-  cublasLtOrder_t orderA = get_order<SRC>();
-  cublasLtOrder_t orderOut = get_order<TARGET>();
+  hipblasLtOrder_t orderA = get_order<SRC>();
+  hipblasLtOrder_t orderOut = get_order<TARGET>();
   int ldA = get_leading_dim<SRC>(dim1, dim2);
   int ldOut = get_leading_dim<TARGET>(dim1, dim2);
 
-  cublasLtMatrixLayout_t A_desc = NULL, out_desc = NULL;
-  cublasLtMatrixTransformDesc_t A2Out_desc = NULL;
+  hipblasLtMatrixLayout_t A_desc = NULL, out_desc = NULL;
+  hipblasLtMatrixTransformDesc_t A2Out_desc = NULL;
   hipblasOperation_t opTranspose = HIPBLAS_OP_T;
   float transformAlpha = 1.0f, transformBeta = 0.0f;
 
 
   if(DTYPE == 8)
   {
-    checkCublasStatus(cublasLtMatrixLayoutCreate(&A_desc, HIP_R_8I, dim1, dim2, ldA));
-    checkCublasStatus(cublasLtMatrixLayoutCreate(&out_desc, HIP_R_8I, dim1, dim2, ldOut));
+    checkCublasStatus(hipblasLtMatrixLayoutCreate(&A_desc, HIP_R_8I, dim1, dim2, ldA));
+    checkCublasStatus(hipblasLtMatrixLayoutCreate(&out_desc, HIP_R_8I, dim1, dim2, ldOut));
   }
   else if(DTYPE == 32)
   {
-    checkCublasStatus(cublasLtMatrixLayoutCreate(&A_desc, HIP_R_32I, dim1, dim2, ldA));
-    checkCublasStatus(cublasLtMatrixLayoutCreate(&out_desc, HIP_R_32I, dim1, dim2, ldOut));
+    checkCublasStatus(hipblasLtMatrixLayoutCreate(&A_desc, HIP_R_32I, dim1, dim2, ldA));
+    checkCublasStatus(hipblasLtMatrixLayoutCreate(&out_desc, HIP_R_32I, dim1, dim2, ldOut));
   }
   else
   {
@@ -397,50 +401,43 @@ template <typename T, int SRC, int TARGET, bool transpose, int DTYPE> void trans
   checkCublasStatus(cublasLtMatrixLayoutSetAttribute(A_desc, CUBLASLT_MATRIX_LAYOUT_ORDER, &orderA, sizeof(orderA)));
   checkCublasStatus(cublasLtMatrixLayoutSetAttribute(out_desc, CUBLASLT_MATRIX_LAYOUT_ORDER, &orderOut, sizeof(orderOut)));
 
-  checkCublasStatus(cublasLtMatrixTransformDescCreate(&A2Out_desc, HIP_R_32F));
+  checkCublasStatus(hipblasLtMatrixTransformDescCreate(&A2Out_desc, HIP_R_32F));
 
-  if(transpose){ checkCublasStatus(cublasLtMatrixTransformDescSetAttribute(A2Out_desc, CUBLASLT_MATRIX_TRANSFORM_DESC_TRANSA, &opTranspose, sizeof(opTranspose))); }
+  if(transpose){ checkCublasStatus(hipblasLtMatrixTransformDescSetAttribute(A2Out_desc, HIPBLASLT_MATRIX_TRANSFORM_DESC_TRANSA, &opTranspose, sizeof(opTranspose))); }
 
-  checkCublasStatus(cublasLtMatrixTransform(ltHandle, A2Out_desc, &transformAlpha, A, A_desc, &transformBeta, NULL, NULL, out, out_desc, 0));
+  checkCublasStatus(hipblasLtMatrixTransform(ltHandle, A2Out_desc, &transformAlpha, A, A_desc, &transformBeta, NULL, NULL, out, out_desc, 0));
 
-  if (A_desc) checkCublasStatus(cublasLtMatrixLayoutDestroy(A_desc));
-  if (out_desc) checkCublasStatus(cublasLtMatrixLayoutDestroy(out_desc));
-  if (A2Out_desc) checkCublasStatus(cublasLtMatrixTransformDescDestroy(A2Out_desc));
+  if (A_desc) checkCublasStatus(hipblasLtMatrixLayoutDestroy(A_desc));
+  if (out_desc) checkCublasStatus(hipblasLtMatrixLayoutDestroy(out_desc));
+  if (A2Out_desc) checkCublasStatus(hipblasLtMatrixTransformDescDestroy(A2Out_desc));
 #endif
 }
+template void transform<int8_t, ROW, COL, false, 8>(hipblasLtHandle_t ltHandle, int8_t *A, int8_t *out, int dim1, int dim2);
+template void transform<int8_t, ROW, ROW, false, 8>(hipblasLtHandle_t ltHandle, int8_t *A, int8_t *out, int dim1, int dim2);
 
-template void transform<int8_t, ROW, COL, false, 8>(cublasLtHandle_t ltHandle, int8_t *A, int8_t *out, int dim1, int dim2);
-template void transform<int8_t, ROW, ROW, false, 8>(cublasLtHandle_t ltHandle, int8_t *A, int8_t *out, int dim1, int dim2);
-template void transform<int8_t, ROW, COL32, false, 8>(cublasLtHandle_t ltHandle, int8_t *A, int8_t *out, int dim1, int dim2);
-template void transform<int32_t, ROW, COL32, false, 32>(cublasLtHandle_t ltHandle, int32_t *A, int32_t *out, int dim1, int dim2);
-template void transform<int8_t, ROW, COL_TURING, false, 8>(cublasLtHandle_t ltHandle, int8_t *A, int8_t *out, int dim1, int dim2);
-template void transform<int8_t, ROW, COL_AMPERE, false, 8>(cublasLtHandle_t ltHandle, int8_t *A, int8_t *out, int dim1, int dim2);
-template void transform<int8_t, COL32, ROW, false, 8>(cublasLtHandle_t ltHandle, int8_t *A, int8_t *out, int dim1, int dim2);
-template void transform<int32_t, COL32, ROW, false, 32>(cublasLtHandle_t ltHandle, int32_t *A, int32_t *out, int dim1, int dim2);
-
-template <int FORMATB, int DTYPE_OUT, int SCALE_ROWS> int igemmlt(cublasLtHandle_t ltHandle, int m, int n, int k, const int8_t *A, const int8_t *B, void *C, float *row_scale, int lda, int ldb, int ldc)
+template void transform<int8_t, ROW, COL32, false, 8>(hipblasLtHandle_t ltHandle, int8_t *A, int8_t *out, int dim1, int dim2);
+template void transform<int32_t, ROW, COL32, false, 32>(hipblasLtHandle_t ltHandle, int32_t *A, int32_t *out, int dim1, int dim2);
+template void transform<int8_t, ROW, COL_TURING, false, 8>(hipblasLtHandle_t ltHandle, int8_t *A, int8_t *out, int dim1, int dim2);
+template void transform<int8_t, ROW, COL_AMPERE, false, 8>(hipblasLtHandle_t ltHandle, int8_t *A, int8_t *out, int dim1, int dim2);
+template void transform<int8_t, COL32, ROW, false, 8>(hipblasLtHandle_t ltHandle, int8_t *A, int8_t *out, int dim1, int dim2);
+template void transform<int32_t, COL32, ROW, false, 32>(hipblasLtHandle_t ltHandle, int32_t *A, int32_t *out, int dim1, int dim2);
+template <int FORMATB, int DTYPE_OUT, int SCALE_ROWS> int igemmlt(hipblasLtHandle_t ltHandle, int m, int n, int k, const int8_t *A, const int8_t *B, void *C, float *row_scale, int lda, int ldb, int ldc)
 {
-#ifdef NO_CUBLASLT
-  cout << "" << endl;
-  cout << "=============================================" << endl;
-  cout << "ERROR: Your GPU does not support Int8 Matmul!" << endl;
-  cout << "=============================================" << endl;
-  cout << "" << endl;
-  assert(false);
 
-	return 0;
+#ifdef NO_CUBLASLT
+  return ERR_NOT_IMPLEMENTED;
 #else
     int has_error = 0;
-    cublasLtMatmulDesc_t matmulDesc = NULL;
-    cublasLtMatrixLayout_t Adesc = NULL, Bdesc = NULL, Cdesc = NULL;
+    hipblasLtMatmulDesc_t matmulDesc = NULL;
+    hipblasLtMatrixLayout_t Adesc = NULL, Bdesc = NULL, Cdesc = NULL;
     hipblasOperation_t opT = HIPBLAS_OP_T;
-    cublasLtPointerMode_t alphaVec = CUBLASLT_POINTER_MODE_ALPHA_DEVICE_VECTOR_BETA_ZERO;
-    cublasLtOrder_t col32 = CUBLASLT_ORDER_COL32;
-    cublasLtOrder_t col_turing = CUBLASLT_ORDER_COL4_4R2_8C;
-    cublasLtOrder_t col_ampere = CUBLASLT_ORDER_COL32_2R_4R4;
+    hipblasLtPointerMode_t alphaVec = HIPBLASLT_POINTER_MODE_ALPHA_DEVICE_VECTOR_BETA_HOST;
+    hipblasLtOrder_t col32 = HIPBLASLT_ORDER_COL;
+    hipblasLtOrder_t col_turing = CUBLASLT_ORDER_COL4_4R2_8C;
+    hipblasLtOrder_t col_ampere = HIPBLASLT_ORDER_COL;
 
-    has_error |= checkCublasStatus(cublasLtMatrixLayoutCreate(&Adesc, HIP_R_8I, m, k, lda));
-    has_error |= checkCublasStatus(cublasLtMatrixLayoutCreate(&Bdesc, HIP_R_8I, n, k, ldb));
+    has_error |= checkCublasStatus(hipblasLtMatrixLayoutCreate(&Adesc, HIP_R_8I, m, k, lda));
+    has_error |= checkCublasStatus(hipblasLtMatrixLayoutCreate(&Bdesc, HIP_R_8I, n, k, ldb));
 
     has_error |= checkCublasStatus(cublasLtMatrixLayoutSetAttribute(Adesc, CUBLASLT_MATRIX_LAYOUT_ORDER, &col32, sizeof(col32)));
     if(FORMATB == COL_TURING)
@@ -450,50 +447,50 @@ template <int FORMATB, int DTYPE_OUT, int SCALE_ROWS> int igemmlt(cublasLtHandle
 
     if(DTYPE_OUT == 32)
     {
-      has_error |= checkCublasStatus(cublasLtMatmulDescCreate(&matmulDesc, HIPBLAS_COMPUTE_32I, HIP_R_32I));
-      has_error |= checkCublasStatus(cublasLtMatmulDescSetAttribute(matmulDesc, CUBLASLT_MATMUL_DESC_TRANSB, &opT, sizeof(opT)));
-      has_error |= checkCublasStatus(cublasLtMatrixLayoutCreate(&Cdesc, HIP_R_32I, m, n, ldc));
+      has_error |= checkCublasStatus(hipblasLtMatmulDescCreate(&matmulDesc, HIPBLAS_COMPUTE_32I, HIP_R_32I));
+      has_error |= checkCublasStatus(hipblasLtMatmulDescSetAttribute(matmulDesc, HIPBLASLT_MATMUL_DESC_TRANSB, &opT, sizeof(opT)));
+      has_error |= checkCublasStatus(hipblasLtMatrixLayoutCreate(&Cdesc, HIP_R_32I, m, n, ldc));
       has_error |= checkCublasStatus(cublasLtMatrixLayoutSetAttribute(Cdesc, CUBLASLT_MATRIX_LAYOUT_ORDER, &col32, sizeof(col32)));
       int alpha = 1, beta = 0;
-      has_error |= checkCublasStatus(cublasLtMatmul(ltHandle, matmulDesc,&alpha, A, Adesc, B, Bdesc, &beta, (int32_t*)C, Cdesc, (int32_t*)C, Cdesc, NULL, NULL, 0, 0));
+      has_error |= checkCublasStatus(hipblasLtMatmul(ltHandle, matmulDesc,&alpha, A, Adesc, B, Bdesc, &beta, (int32_t*)C, Cdesc, (int32_t*)C, Cdesc, NULL, NULL, 0, 0));
     }
     else
     {
-      has_error |= checkCublasStatus(cublasLtMatmulDescCreate(&matmulDesc, HIPBLAS_COMPUTE_32I, HIP_R_32F));
-      has_error |= checkCublasStatus(cublasLtMatmulDescSetAttribute(matmulDesc, CUBLASLT_MATMUL_DESC_TRANSB, &opT, sizeof(opT)));
-      has_error |= checkCublasStatus(cublasLtMatrixLayoutCreate(&Cdesc, HIP_R_8I, m, n, ldc));
+      has_error |= checkCublasStatus(hipblasLtMatmulDescCreate(&matmulDesc, HIPBLAS_COMPUTE_32I, HIP_R_32F));
+      has_error |= checkCublasStatus(hipblasLtMatmulDescSetAttribute(matmulDesc, HIPBLASLT_MATMUL_DESC_TRANSB, &opT, sizeof(opT)));
+      has_error |= checkCublasStatus(hipblasLtMatrixLayoutCreate(&Cdesc, HIP_R_8I, m, n, ldc));
       has_error |= checkCublasStatus(cublasLtMatrixLayoutSetAttribute(Cdesc, CUBLASLT_MATRIX_LAYOUT_ORDER, &col32, sizeof(col32)));
       if(!SCALE_ROWS)
       {
         float alpha = 1.0f, beta = 0.0f;
-        has_error |= checkCublasStatus(cublasLtMatmul(ltHandle, matmulDesc,&alpha, A, Adesc, B, Bdesc, &beta, (int8_t*)C, Cdesc, (int8_t*)C, Cdesc, NULL, NULL, 0, 0));
+        has_error |= checkCublasStatus(hipblasLtMatmul(ltHandle, matmulDesc,&alpha, A, Adesc, B, Bdesc, &beta, (int8_t*)C, Cdesc, (int8_t*)C, Cdesc, NULL, NULL, 0, 0));
       }
       else
       {
-        has_error |= checkCublasStatus(cublasLtMatmulDescSetAttribute(matmulDesc, CUBLASLT_MATMUL_DESC_POINTER_MODE, &alphaVec, sizeof(alphaVec)));
-        has_error |= checkCublasStatus(cublasLtMatmul(ltHandle, matmulDesc, row_scale, A, Adesc, B, Bdesc, NULL, (int8_t*)C, Cdesc, (int8_t*)C, Cdesc, NULL, NULL, 0, 0));
+        has_error |= checkCublasStatus(hipblasLtMatmulDescSetAttribute(matmulDesc, HIPBLASLT_MATMUL_DESC_POINTER_MODE, &alphaVec, sizeof(alphaVec)));
+        has_error |= checkCublasStatus(hipblasLtMatmul(ltHandle, matmulDesc, row_scale, A, Adesc, B, Bdesc, NULL, (int8_t*)C, Cdesc, (int8_t*)C, Cdesc, NULL, NULL, 0, 0));
       }
     }
 
 
-    if (Cdesc) has_error |= checkCublasStatus(cublasLtMatrixLayoutDestroy(Cdesc));
-    if (Bdesc) has_error |= checkCublasStatus(cublasLtMatrixLayoutDestroy(Bdesc));
-    if (Adesc) has_error |= checkCublasStatus(cublasLtMatrixLayoutDestroy(Adesc));
-    if (matmulDesc) has_error |= checkCublasStatus(cublasLtMatmulDescDestroy(matmulDesc));
+    if (Cdesc) has_error |= checkCublasStatus(hipblasLtMatrixLayoutDestroy(Cdesc));
+    if (Bdesc) has_error |= checkCublasStatus(hipblasLtMatrixLayoutDestroy(Bdesc));
+    if (Adesc) has_error |= checkCublasStatus(hipblasLtMatrixLayoutDestroy(Adesc));
+    if (matmulDesc) has_error |= checkCublasStatus(hipblasLtMatmulDescDestroy(matmulDesc));
     if(has_error == 1)
       printf("error detected");
 
     return has_error;
-#endif
+#endif // NO_CUBLASLT
 }
-
 int fill_up_to_nearest_multiple(int value, int multiple)
 {
+
   return value + (value % multiple == 0 ? 0 : (multiple - (value % multiple)));
 }
-
 void dequant_mm_int32_fp16(int *A, float *rowStats, float *colStats, half *out, float* newRowStats, float* newcolStats, half *bias, int numRows, int numCols)
 {
+
   int threads = 512;
   int tileCols = fill_up_to_nearest_multiple(numCols, 32);
   int n = numRows*tileCols;
@@ -503,13 +500,13 @@ void dequant_mm_int32_fp16(int *A, float *rowStats, float *colStats, half *out, 
   num_blocks += (numRows % subtile_rows == 0) ? 0 : 1;
   num_blocks = num_blocks*(tileCols/32);
   assert(threads <= tilesize);
+kdequant_mm_int32_fp16<4, 128, 512><<<dim3(num_blocks), dim3(threads), 0, 0>>>(A, rowStats, colStats, out, newRowStats, newcolStats, bias, numRows, numCols, tileCols, n);
+  HIP_CHECK_RETURN(hipPeekAtLastError());
 
-  kdequant_mm_int32_fp16<4, 128, 512><<<num_blocks, threads>>>(A, rowStats, colStats, out, newRowStats, newcolStats, bias, numRows, numCols, tileCols, n);
-  CUDA_CHECK_RETURN(hipPeekAtLastError());
-}
-
+  }
 #define STATS_THREADS 64
 #define STATS_ITEMS 4
+
 #define STATS_ROWS 16
 void getColRowStats(half * A, float *rowStats, float *colStats, int *nnz_count_row, float nnz_threshold, int rows, int cols)
 {
@@ -521,17 +518,17 @@ void getColRowStats(half * A, float *rowStats, float *colStats, int *nnz_count_r
 	row_tiles = row_tiles > 0 ? row_tiles : 1;
 	col_tiles = col_tiles > 0 ? col_tiles : 1;
   int num_blocks = row_tiles * col_tiles;
+if(nnz_threshold == 0.0)
+    kgetColRowStats<half, STATS_THREADS, STATS_ITEMS, STATS_ROWS, STATS_THREADS*STATS_ITEMS, 0><<<dim3(num_blocks), dim3(STATS_THREADS), 0, 0>>>(A, rowStats, colStats, nnz_count_row, nnz_threshold, rows, cols, tiledRows, tiledCols);
 
-  if(nnz_threshold == 0.0)
-    kgetColRowStats<half, STATS_THREADS, STATS_ITEMS, STATS_ROWS, STATS_THREADS*STATS_ITEMS, 0><<<num_blocks, STATS_THREADS>>>(A, rowStats, colStats, nnz_count_row, nnz_threshold, rows, cols, tiledRows, tiledCols);
-  else if(nnz_threshold != 0.0)
-    kgetColRowStats<half, STATS_THREADS, STATS_ITEMS, STATS_ROWS, STATS_THREADS*STATS_ITEMS, 1><<<num_blocks, STATS_THREADS>>>(A, rowStats, colStats, nnz_count_row, nnz_threshold, rows, cols, tiledRows, tiledCols);
-  CUDA_CHECK_RETURN(hipPeekAtLastError());
-
+    else if(nnz_threshold != 0.0)
+    kgetColRowStats<half, STATS_THREADS, STATS_ITEMS, STATS_ROWS, STATS_THREADS*STATS_ITEMS, 1><<<dim3(num_blocks), dim3(STATS_THREADS), 0, 0>>>(A, rowStats, colStats, nnz_count_row, nnz_threshold, rows, cols, tiledRows, tiledCols);
+  HIP_CHECK_RETURN(hipPeekAtLastError());
 }
 
 void doubleRowColQuant(half * A, float *rowStats, float *colStats, char *out_col_normed, char *out_row_normed, int *rowidx, int *colidx, half *val, int *nnz_block_ptr, float threshold, int rows, int cols)
 {
+
   int threads = 64;
   int items_per_thread = 4;
   int tile_cols = threads*items_per_thread;
@@ -544,17 +541,17 @@ void doubleRowColQuant(half * A, float *rowStats, float *colStats, char *out_col
 	col_tiles = col_tiles > 0 ? col_tiles : 1;
   int num_blocks = row_tiles * col_tiles;
 
+if(threshold > 0.0f)
+    kDoubleRowColQuant<64, 4, 16, 64*4, 1><<<dim3(num_blocks), dim3(threads), 0, 0>>>(A, rowStats, colStats, out_col_normed, out_row_normed, rowidx, colidx, val, nnz_block_ptr, threshold, rows, cols, tiledCols);
 
-  if(threshold > 0.0f)
-    kDoubleRowColQuant<64, 4, 16, 64*4, 1><<<num_blocks, threads>>>(A, rowStats, colStats, out_col_normed, out_row_normed, rowidx, colidx, val, nnz_block_ptr, threshold, rows, cols, tiledCols);
-  else
-    kDoubleRowColQuant<64, 4, 16, 64*4, 0><<<num_blocks, threads>>>(A, rowStats, colStats, out_col_normed, out_row_normed, rowidx, colidx, val, nnz_block_ptr, threshold, rows, cols, tiledCols);
-
-  CUDA_CHECK_RETURN(hipPeekAtLastError());
+    else
+    kDoubleRowColQuant<64, 4, 16, 64*4, 0><<<dim3(num_blocks), dim3(threads), 0, 0>>>(A, rowStats, colStats, out_col_normed, out_row_normed, rowidx, colidx, val, nnz_block_ptr, threshold, rows, cols, tiledCols);
+HIP_CHECK_RETURN(hipPeekAtLastError());
 }
 
 template <int FORMAT, int TRANSPOSE> void transformRowToFormat(char * A, char *out, int rows, int cols)
 {
+
   int threads = 256;
   int items_per_thread = 8;
   // we load 128 column values per warp
@@ -567,9 +564,9 @@ template <int FORMAT, int TRANSPOSE> void transformRowToFormat(char * A, char *o
 	row_tiles = row_tiles > 0 ? row_tiles : 1;
 	col_tiles = col_tiles > 0 ? col_tiles : 1;
   int num_blocks = row_tiles * col_tiles;
-
   int outCols = fill_up_to_nearest_multiple(cols, 32);
   int outRows = fill_up_to_nearest_multiple(rows, 32);
+
   if(FORMAT == COL_TURING)
   {
     if(TRANSPOSE)
@@ -592,11 +589,10 @@ template <int FORMAT, int TRANSPOSE> void transformRowToFormat(char * A, char *o
       outRows = cols;
     }
   }
+kTransformRowToFormat<256, 8, 32, 32*8, TRANSPOSE, FORMAT><<<dim3(num_blocks), dim3(threads), 0, 0>>>(A, out, rows, cols, tiledCols, outRows, outCols);
+  HIP_CHECK_RETURN(hipPeekAtLastError());
 
-  kTransformRowToFormat<256, 8, 32, 32*8, TRANSPOSE, FORMAT><<<num_blocks, threads>>>(A, out, rows, cols, tiledCols, outRows, outCols);
-  CUDA_CHECK_RETURN(hipPeekAtLastError());
-}
-
+  }
 void spmm_coo(hipsparseHandle_t handle, int *A_rowidx, int *A_colidx, half *A_vals, int A_nnz, int A_rows, int A_cols, int B_cols, int ldb, half *B, int ldc, half* C, bool transposed_B)
 {
 
@@ -608,11 +604,12 @@ void spmm_coo(hipsparseHandle_t handle, int *A_rowidx, int *A_colidx, half *A_va
 
     float alpha = 1.0f;
     float beta = 0.0f;
+
     void *dBuffer = NULL;
     size_t bufferSize = 0;
-
     CHECK_CUSPARSE( hipsparseCreateCoo(&descA, A_rows, A_cols, A_nnz,
                                       A_rowidx, A_colidx, A_vals,
+
                                       HIPSPARSE_INDEX_32I,
                                       HIPSPARSE_INDEX_BASE_ZERO, HIP_R_16F) );
     // Create dense matrix C
@@ -625,9 +622,9 @@ void spmm_coo(hipsparseHandle_t handle, int *A_rowidx, int *A_colidx, half *A_va
       A_cols = B_cols;
       B_cols = tmp;
     }
-
     CHECK_CUSPARSE( hipsparseCreateDnMat(&descB, A_cols, B_cols, ldb, B,
                                         HIP_R_16F, HIPSPARSE_ORDER_ROW) );
+
     // allocate an external buffer if needed
     CHECK_CUSPARSE( hipsparseSpMM_bufferSize(
                                  handle,
@@ -635,53 +632,52 @@ void spmm_coo(hipsparseHandle_t handle, int *A_rowidx, int *A_colidx, half *A_va
                                  transposed_B ? HIPSPARSE_OPERATION_TRANSPOSE : HIPSPARSE_OPERATION_NON_TRANSPOSE,
                                  &alpha, descA, descB, &beta, descC, HIP_R_32F,
                                  HIPSPARSE_SPMM_ALG_DEFAULT, &bufferSize) );
-    CUDA_CHECK_RETURN( hipMalloc(&dBuffer, bufferSize) );
-
+    HIP_CHECK_RETURN( hipMalloc(&dBuffer, bufferSize) );
     // execute SpMM
     CHECK_CUSPARSE( hipsparseSpMM(handle,
+
                                  HIPSPARSE_OPERATION_NON_TRANSPOSE,
                                  transposed_B ? HIPSPARSE_OPERATION_TRANSPOSE : HIPSPARSE_OPERATION_NON_TRANSPOSE,
                                  &alpha, descA, descB, &beta, descC, HIP_R_32F,
                                  HIPSPARSE_SPMM_ALG_DEFAULT, dBuffer));
-
     // destroy matrix/vector descriptors
     CHECK_CUSPARSE( hipsparseDestroySpMat(descA) );
+
     CHECK_CUSPARSE( hipsparseDestroyDnMat(descB) );
     CHECK_CUSPARSE( hipsparseDestroyDnMat(descC) );
-    CUDA_CHECK_RETURN( hipFree(dBuffer) );
+    HIP_CHECK_RETURN( hipFree(dBuffer) );
 #endif
 }
-
 template <typename T, int BITS> void spmm_coo_very_sparse_naive(int *max_count, int *max_idx, int *offset_rowidx, int *rowidx, int *colidx, half *values, T *B, half *out, float *dequant_stats, int nnz_rows, int nnz, int rowsA, int rowsB, int colsB)
 {
 
-  kspmm_coo_very_sparse_naive<T, 8, BITS><<<nnz_rows, 256>>>(max_count, max_idx, offset_rowidx, rowidx, colidx, values, B, out, dequant_stats, nnz, rowsA, rowsB, colsB);
-  CUDA_CHECK_RETURN(hipPeekAtLastError());
-}
+  kspmm_coo_very_sparse_naive<T, 8, BITS><<<dim3(nnz_rows), dim3(256), 0, 0>>>(max_count, max_idx, offset_rowidx, rowidx, colidx, values, B, out, dequant_stats, nnz, rowsA, rowsB, colsB);
+  HIP_CHECK_RETURN(hipPeekAtLastError());
 
+}
 
 template <int FORMAT> void extractOutliers(char * A, int *idx, char *out, int idx_size, int rows, int cols)
 {
+
   int threads = 256;
   // we load 128 column values per warp
   int tiledCols = tiledCols = fill_up_to_nearest_multiple(cols, 32);
   int tiledRows = 0;
-
 	int num_blocks = idx_size;
 
   if(FORMAT == COL_TURING)
   {
+
       tiledRows = fill_up_to_nearest_multiple(rows, 8);
   }
   else if(FORMAT == COL_AMPERE)
   {
       tiledRows = fill_up_to_nearest_multiple(rows, 32);
 	}
+kExtractOutliers<FORMAT><<<dim3(num_blocks), dim3(threads), 0, 0>>>(A, idx, out, idx_size, rows, cols, tiledRows, tiledCols);
+  HIP_CHECK_RETURN(hipPeekAtLastError());
 
-  kExtractOutliers<FORMAT><<<num_blocks, threads>>>(A, idx, out, idx_size, rows, cols, tiledRows, tiledCols);
-  CUDA_CHECK_RETURN(hipPeekAtLastError());
-}
-
+  }
 
 
 
@@ -692,28 +688,29 @@ template <typename T> void gemm_host(int m, int n, int k, T * A,  T* B,  T * out
 
 	//cout << num_blocks << endl;
 	//cout << lda << endl;
+
 	//cout << ldb << endl;
 	//cout << ldc << endl;
-
 	//cout << m << endl;
 	//cout << n << endl;
+
 	//cout << k << endl;
   //if(bits == 32)
     //gemm_device<T, 32, 128><<< num_blocks, 128, 0, 0 >>>(m,  n,  k, A,  B,  out, lda, ldb, ldc);
     //gemm_device<T, 32, 32><<< num_blocks, 32, 0, 0 >>>(m,  n,  k, A,  B,  out, lda, ldb, ldc);
   if(bits == 16)
     //gemm_device<T, 16, 256><<< num_blocks, 256, 0, 0 >>>(m,  n,  k, A,  B,  out, lda, ldb, ldc);
-    gemm_device<T, 16, 160><<< num_blocks, 160, 0, 0 >>>(m,  n,  k, A,  B,  out, lda, ldb, ldc);
+    gemm_device<T, 16, 160><<<dim3(num_blocks), dim3(160), 0, 0 >>>(m,  n,  k, A,  B,  out, lda, ldb, ldc);
     //gemm_device<T, 16, 128><<< num_blocks, 128, 0, 0 >>>(m,  n,  k, A,  B,  out, lda, ldb, ldc);
     //gemm_device<T, 16, 96><<< num_blocks, 96, 0, 0 >>>(m,  n,  k, A,  B,  out, lda, ldb, ldc);
     //gemm_device<T, 16, 32><<< num_blocks, 32, 0, 0 >>>(m,  n,  k, A,  B,  out, lda, ldb, ldc);
     //gemm_device<T, 16, 64><<< num_blocks, 64, 0, 0 >>>(m,  n,  k, A,  B,  out, lda, ldb, ldc);
 }
-
 template <typename T> void gemm_4bit_inference(int m, int n, int k, T * A,  unsigned char* B,  float *absmax, T * out,  int lda, int ldb, int ldc, int blocksize)
 {
 
 	int num_blocks = (m+31)/32;
+
 
 	//cout << num_blocks << endl;
 	//cout << lda << endl;
@@ -723,7 +720,7 @@ template <typename T> void gemm_4bit_inference(int m, int n, int k, T * A,  unsi
 	//cout << m << endl;
 	//cout << n << endl;
 	//cout << k << endl;
-  kgemm_4bit_inference<T, 96><<< num_blocks, 96, 0, 0 >>>(m,  n,  k, A,  B, absmax, out, lda, ldb, ldc, blocksize);
+  kgemm_4bit_inference<T, 96><<< dim3(num_blocks), dim3(96), 0, 0 >>>(m,  n,  k, A,  B, absmax, out, lda, ldb, ldc, blocksize);
   //kgemm_4bit_inference<T, 256><<< num_blocks, 256, 0, 0 >>>(m,  n,  k, A,  B, absmax, out, lda, ldb, ldc, blocksize);
   //kgemm_4bit_inference<T, 160><<< num_blocks, 160, 0, 0 >>>(m,  n,  k, A,  B, absmax, out, lda, ldb, ldc, blocksize);
   //kgemm_4bit_inference<T, 32><<< num_blocks, 32, 0, 0 >>>(m,  n,  k, A,  B, absmax, out, lda, ldb, ldc, blocksize);
@@ -734,8 +731,8 @@ template <typename T, int BITS> void gemm_4bit_inference_naive(int m, int n, int
 
 	int num_blocks = (m+3)/4;
 
-  kgemm_4bit_inference_naive<T, 128, BITS><<< num_blocks, 128, 0, 0 >>>(m,  n,  k, A,  B, absmax, datatype, out, lda, ldb, ldc, blocksize);
-  CUDA_CHECK_RETURN(hipPeekAtLastError());
+  kgemm_4bit_inference_naive<T, 128, BITS><<< dim3(num_blocks), dim3(128), 0, 0 >>>(m,  n,  k, A,  B, absmax, datatype, out, lda, ldb, ldc, blocksize);
+  HIP_CHECK_RETURN(hipPeekAtLastError());
 }
 
 template <typename T, int FUNC> void func(T *A, T *B, T value, long n)
@@ -744,8 +741,8 @@ template <typename T, int FUNC> void func(T *A, T *B, T value, long n)
   int blocks = n/threads;
   blocks = n % threads == 0 ? blocks : blocks + 1;
   blocks = blocks > 65535 ? 65535 : blocks;
-  kfunc<T, FUNC><<<blocks, 512>>>(A, B, value, n);
-  CUDA_CHECK_RETURN(hipPeekAtLastError());
+  kfunc<T, FUNC><<<dim3(blocks), dim3(512),0, 0>>>(A, B, value, n);
+  HIP_CHECK_RETURN(hipPeekAtLastError());
 }
 
 //==============================================================
@@ -770,12 +767,12 @@ template void extractOutliers<COL_AMPERE>(char * A, int *idx, char *out, int idx
 template void spmm_coo_very_sparse_naive<half, 16>(int *max_count, int *max_idx, int *offset_rowidx, int *rowidx, int *colidx, half *values, half *B, half *out, float *dequant_stats, int nnz_rows, int nnz, int rowsA, int rowsB, int colsB);
 template void spmm_coo_very_sparse_naive<signed char, 8>(int *max_count, int *max_idx, int *offset_rowidx, int *rowidx, int *colidx, half *values, signed char *B, half *out, float *dequant_stats, int nnz_rows, int nnz, int rowsA, int rowsB, int colsB);
 
-template int igemmlt<COL_TURING, 32, 0>(cublasLtHandle_t ltHandle, int m, int n, int k, const int8_t *A, const int8_t *B, void *C, float *row_scale, int lda, int ldb, int ldc);
-template int igemmlt<COL_TURING, 8, 0>(cublasLtHandle_t ltHandle, int m, int n, int k, const int8_t *A, const int8_t *B, void *C, float *row_scale, int lda, int ldb, int ldc);
-template int igemmlt<COL_TURING, 8, 1>(cublasLtHandle_t ltHandle, int m, int n, int k, const int8_t *A, const int8_t *B, void *C, float *row_scale, int lda, int ldb, int ldc);
-template int igemmlt<COL_AMPERE, 32, 0>(cublasLtHandle_t ltHandle, int m, int n, int k, const int8_t *A, const int8_t *B, void *C, float *row_scale, int lda, int ldb, int ldc);
-template int igemmlt<COL_AMPERE, 8, 0>(cublasLtHandle_t ltHandle, int m, int n, int k, const int8_t *A, const int8_t *B, void *C, float *row_scale, int lda, int ldb, int ldc);
-template int igemmlt<COL_AMPERE, 8, 1>(cublasLtHandle_t ltHandle, int m, int n, int k, const int8_t *A, const int8_t *B, void *C, float *row_scale, int lda, int ldb, int ldc);
+template int igemmlt<COL_TURING, 32, 0>(hipblasLtHandle_t ltHandle, int m, int n, int k, const int8_t *A, const int8_t *B, void *C, float *row_scale, int lda, int ldb, int ldc);
+template int igemmlt<COL_TURING, 8, 0>(hipblasLtHandle_t ltHandle, int m, int n, int k, const int8_t *A, const int8_t *B, void *C, float *row_scale, int lda, int ldb, int ldc);
+template int igemmlt<COL_TURING, 8, 1>(hipblasLtHandle_t ltHandle, int m, int n, int k, const int8_t *A, const int8_t *B, void *C, float *row_scale, int lda, int ldb, int ldc);
+template int igemmlt<COL_AMPERE, 32, 0>(hipblasLtHandle_t ltHandle, int m, int n, int k, const int8_t *A, const int8_t *B, void *C, float *row_scale, int lda, int ldb, int ldc);
+template int igemmlt<COL_AMPERE, 8, 0>(hipblasLtHandle_t ltHandle, int m, int n, int k, const int8_t *A, const int8_t *B, void *C, float *row_scale, int lda, int ldb, int ldc);
+template int igemmlt<COL_AMPERE, 8, 1>(hipblasLtHandle_t ltHandle, int m, int n, int k, const int8_t *A, const int8_t *B, void *C, float *row_scale, int lda, int ldb, int ldc);
 
 template void transformRowToFormat<COL32, 0>(char * A, char *out, int rows, int cols);
 template void transformRowToFormat<COL32, 1>(char * A, char *out, int rows, int cols);
