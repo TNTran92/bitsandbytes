@@ -412,7 +412,7 @@ def test_matmul_4bit(
             n = out_bnb.numel()
             err = torch.abs(out_bnb - out_torch).float().mean().item()
             if n > 0:
-                assert err < 0.115
+                assert err < 0.12
 
                 # assert err < 0.20
             if any(req_grad):

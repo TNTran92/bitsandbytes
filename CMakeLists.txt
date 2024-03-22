@@ -33,55 +33,55 @@ set(METAL_FILES csrc/mps_kernels.metal)
 # C++ sources are always included
 list(APPEND SRC_FILES ${CPP_FILES})
 
-set(COMPUTE_BACKEND "cpu" CACHE STRING "The compute backend to use (cpu, cuda, mps)")
-set_property(CACHE COMPUTE_BACKEND PROPERTY STRINGS cpu cuda mps)
+set(COMPUTE_BACKEND "hip" CACHE STRING "The compute backend to use (cpu, cuda, mps, hip)")
+set_property(CACHE COMPUTE_BACKEND PROPERTY STRINGS cpu cuda mps hip)
 option(PTXAS_VERBOSE "Pass through -v flag to PTX Assembler" OFF)
 
-if(NOT DEFINED HIP_PATH)
-    if(NOT DEFINED ENV{HIP_PATH})
-        set(HIP_PATH "/opt/rocm/hip" CACHE PATH "Path to which HIP has been installed")
-    else()
-        set(HIP_PATH $ENV{HIP_PATH} CACHE PATH "Path to which HIP has been installed")
+if(COMPUTE_BACKEND STREQUAL "hip")
+    if(NOT DEFINED HIP_PATH)
+        if(NOT DEFINED ENV{HIP_PATH})
+            set(HIP_PATH "/opt/rocm/hip" CACHE PATH "Path to which HIP has been installed")
+        else()
+            set(HIP_PATH $ENV{HIP_PATH} CACHE PATH "Path to which HIP has been installed")
+        endif()
     endif()
+    message("HIP_PATH: " ${HIP_PATH})
+    set(CMAKE_MODULE_PATH "${HIP_PATH}/cmake" ${CMAKE_MODULE_PATH})
+
+    find_package(HIP REQUIRED)
+    if (HIP_FOUND)
+      message(STATUS "Found HIP: " ${HIP_VERSION})
+    else()
+      message(FATAL_ERROR "Could not find HIP")
+    endif()
+
+    find_package(rocthrust REQUIRED)
+    find_package(hipblas REQUIRED)
+    find_package(hipsparse REQUIRED)
+    find_package(rocrand REQUIRED)
+
+
+    # Search for rocm in common locations
+    list(APPEND CMAKE_PREFIX_PATH /opt/rocm/hip /opt/rocm /opt/rocm)
+    list(APPEND HIP_PATH /opt/rocm/llvm/bin/)
+    # Find HIP.
+    # The user may override AMDGPU_TARGETS defined in the HIP config file
+    # to select the AMDGPU archs to compile for.
+    # ex. set(AMDGPU_TARGETS "gfx803;gfx900;gfx906")
+
+    # Find OpenMP.
+    #find_package(OpenMP REQUIRED)
+
+    # Set compiler and linker.
+    if(NOT WIN32)
+      set(CMAKE_CXX_COMPILER ${HIP_HIPCC_EXECUTABLE})
+      set(CMAKE_CXX_LINKER   ${HIP_HIPCC_EXECUTABLE})
+      set(CMAKE_CXXFLAGS -D__HIP_PLATFORM_AMD__)
+      set(CMAKE_CFLAGS -D__HIP_PLATFORM_AMD__)
+    endif()
+    message("Current CMAKE_CXX_COMPILER (should show hipcc): " ${CMAKE_CXX_COMPILER})
+    message("Current CMAKE_CXX_LINKER (should show hipcc): " ${CMAKE_CXX_LINKER})
 endif()
-message("HIP_PATH: " ${HIP_PATH})
-set(CMAKE_MODULE_PATH "${HIP_PATH}/cmake" ${CMAKE_MODULE_PATH})
-
-find_package(HIP REQUIRED)
-if (HIP_FOUND)
-  message(STATUS "Found HIP: " ${HIP_VERSION})
-else()
-  message(FATAL_ERROR "Could not find HIP")
-endif()
-
-find_package(rocthrust REQUIRED)
-find_package(hipblas REQUIRED)
-find_package(hipsparse REQUIRED)
-find_package(rocrand REQUIRED)
-#find_package(hipblaslt REQUIRED)
-#find_package(MIOpen REQUIRED)
-
-
-# Search for rocm in common locations
-list(APPEND CMAKE_PREFIX_PATH /opt/rocm/hip /opt/rocm /opt/rocm)
-list(APPEND HIP_PATH /opt/rocm/llvm/bin/)
-# Find HIP.
-# The user may override AMDGPU_TARGETS defined in the HIP config file
-# to select the AMDGPU archs to compile for.
-# ex. set(AMDGPU_TARGETS "gfx803;gfx900;gfx906")
-
-# Find OpenMP.
-#find_package(OpenMP REQUIRED)
-
-# Set compiler and linker.
-if(NOT WIN32)
-  set(CMAKE_CXX_COMPILER ${HIP_HIPCC_EXECUTABLE})
-  set(CMAKE_CXX_LINKER   ${HIP_HIPCC_EXECUTABLE})
-  set(CMAKE_CXXFLAGS -D__HIP_PLATFORM_AMD__)
-  set(CMAKE_CFLAGS -D__HIP_PLATFORM_AMD__)
-endif()
-message("Current CMAKE_CXX_COMPILER (should show hipcc): " ${CMAKE_CXX_COMPILER})
-message("Current CMAKE_CXX_LINKER (should show hipcc): " ${CMAKE_CXX_LINKER})
 
 if(APPLE)
   set(CMAKE_OSX_DEPLOYMENT_TARGET 13.1)
@@ -105,11 +105,14 @@ elseif(${COMPUTE_BACKEND} STREQUAL "mps")
     endif()
     set(BUILD_CUDA OFF)
     set(BUILD_MPS ON)
-else()
+elseif(${COMPUTE_BACKEND} STREQUAL "hip")
     set(BUILD_HIP on)
     set(BUILD_CUDA OFF)
     set(BUILD_MPS OFF)
     set(NO_CUBLASLT ON)
+else()
+    set(BUILD_CUDA OFF)
+    set(BUILD_MPS OFF)
 endif()
 
 
@@ -227,12 +230,14 @@ elseif(BUILD_MPS)
                 COMMENT "Compiling Metal kernels"
                 VERBATIM)
     add_custom_target(metallib DEPENDS "bitsandbytes/bitsandbytes.metallib")
-else()
+elseif(BUILD_HIP)
     list(APPEND SRC_FILES ${CUDA_FILES})
-    string(APPEND BNB_OUTPUT_NAME "_cuda110")
     # real name
-    #string(APPEND BNB_OUTPUT_NAME "_hip_nohipblaslt")
+    string(APPEND BNB_OUTPUT_NAME "_hip_nohipblaslt")
     add_compile_definitions(BUILD_HIP)
+else()
+    string(APPEND BNB_OUTPUT_NAME "_cpu")
+    set(GPU_SOURCES)
 endif()
 
 

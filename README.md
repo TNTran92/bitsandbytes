@@ -1,6 +1,20 @@
 # `bitsandbytes`
 
 This is a ROCM port of the bitsandbytes package. Early version of this port has been attempted but they were poorly maintained and thus, no longer application starting from ROCM 6.0. This repo aims at resolving this pain point and bring the ability to fine tune LLM to AMD GPU, starting with the gfx 1100 family (7900 XTX, 7900 XT, 7900 GRE)
+for gfx1101 (7700XT, 7800XT) and gfx1102 (7600, 7600XT) as well as other not officially supported card, user can try setting the following flag in pyTorch
+
+HSA_OVERRIDE_GFX_VERSION=11.0.0.
+https://github.com/ROCm/ROCm/issues/2901#issuecomment-1950136950
+
+
+
+As of ROCM 6.0, The following GPU is shown as supported architecture by the compiler but has not been tested. User feedback is encouraged.
+gfx1030 (6800, 6800XT, 6900XT, 6950XT)
+gfx942 (MI300)
+gfx908 (MI200)
+gfx906
+gfx900
+gfx90a
 
 Best effort has been made to to ensure the code runs as well as possible. However, feel free to open an issue or make a PR if such a need arises.
 
@@ -26,6 +40,16 @@ Only Ubuntu 22.04 was tested on. Windows WSL have not been tested on.
 Windows is not supported at this time.
 
 For instruction on installing ROCM, check https://rocm.docs.amd.com/projects/install-on-linux/en/latest/tutorial/install-overview.html
+
+## To check bitsandbytes Installation
+>>> import bitsandbytes
+>>> import torch
+>>> torch.cuda.get_device_name()
+'Radeon RX 7900 XTX'
+>>> torch.cuda.get_device_properties(torch.device)
+_CudaDeviceProperties(name='Radeon RX 7900 XTX', major=11, minor=0, gcnArchName='gfx1100', total_memory=24560MB, multi_processor_count=48)
+>>> torch.cuda.get_arch_list()
+['gfx900', 'gfx906', 'gfx908', 'gfx90a', 'gfx1030', 'gfx1100', 'gfx942']
 
 # Original text from bitsandbytes repo
 
