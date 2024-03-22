@@ -17,14 +17,14 @@ evaluation:
 """
 
 import ctypes as ct
-import os
 import errno
-import torch
-from warnings import warn
-from itertools import product
-
+import os
 from pathlib import Path
 from typing import Set, Union
+from warnings import warn
+
+import torch
+
 from .env_vars import get_potentially_lib_path_containing_env_vars
 
 # these are the most common libs names
@@ -119,20 +119,20 @@ class CUDASetup:
                 legacy_binary_name = "libbitsandbytes_cpu.so"
                 self.add_log_entry(f"CUDA SETUP: Defaulting to {legacy_binary_name}...")
                 binary_path = package_dir / legacy_binary_name
-                if not binary_path.exists() or torch.cuda.is_available():
-                    self.add_log_entry('')
-                    self.add_log_entry('='*48 + 'ERROR' + '='*37)
-                    self.add_log_entry('CUDA SETUP: CUDA detection failed! Possible reasons:')
-                    self.add_log_entry('1. CUDA driver not installed')
-                    self.add_log_entry('2. CUDA not installed')
-                    self.add_log_entry('3. You have multiple conflicting CUDA libraries')
-                    self.add_log_entry('4. Required library not pre-compiled for this bitsandbytes release!')
-                    self.add_log_entry('CUDA SETUP: If you compiled from source, try again with `make CUDA_VERSION=DETECTED_CUDA_VERSION` for example, `make CUDA_VERSION=113`.')
-                    self.add_log_entry('CUDA SETUP: The CUDA version for the compile might depend on your conda install. Inspect CUDA version via `conda list | grep cuda`.')
-                    self.add_log_entry('='*80)
-                    self.add_log_entry('')
-                    self.generate_instructions()
-                    raise Exception('CUDA SETUP: Setup Failed!')
+                #if not binary_path.exists() or torch.cuda.is_available():
+                #    self.add_log_entry('')
+                #    self.add_log_entry('='*48 + 'ERROR' + '='*37)
+                #    self.add_log_entry('CUDA SETUP: CUDA detection failed! Possible reasons:')
+                #    self.add_log_entry('1. CUDA driver not installed')
+                #    self.add_log_entry('2. CUDA not installed')
+                #    self.add_log_entry('3. You have multiple conflicting CUDA libraries')
+                #    self.add_log_entry('4. Required library not pre-compiled for this bitsandbytes release!')
+                #    self.add_log_entry('CUDA SETUP: If you compiled from source, try again with `make CUDA_VERSION=DETECTED_CUDA_VERSION` for example, `make CUDA_VERSION=113`.')
+                #    self.add_log_entry('CUDA SETUP: The CUDA version for the compile might depend on your conda install. Inspect CUDA version via `conda list | grep cuda`.')
+                #    self.add_log_entry('='*80)
+                #    self.add_log_entry('')
+                #    self.generate_instructions()
+                #    raise Exception('CUDA SETUP: Setup Failed!')
                 self.lib = ct.cdll.LoadLibrary(binary_path)
             else:
                 self.add_log_entry(f"CUDA SETUP: Loading binary {binary_path}...")
@@ -287,7 +287,7 @@ def check_cuda_result(cuda, result_val):
         if error_str.value is not None:
             CUDASetup.get_instance().add_log_entry(f"CUDA exception! Error code: {error_str.value.decode()}")
         else:
-            CUDASetup.get_instance().add_log_entry(f"Unknown CUDA exception! Please check your CUDA install. It might also be that your GPU is too old.")
+            CUDASetup.get_instance().add_log_entry("Unknown CUDA exception! Please check your CUDA install. It might also be that your GPU is too old.")
 
 
 # https://docs.nvidia.com/cuda/cuda-runtime-api/group__CUDART____VERSION.html#group__CUDART____VERSION
@@ -304,9 +304,9 @@ def get_cuda_version(cuda, cudart_path):
     try:
         check_cuda_result(cuda, cudart.cudaRuntimeGetVersion(ct.byref(version)))
     except AttributeError as e:
-        CUDASetup.get_instance().add_log_entry(f'ERROR: {str(e)}')
+        CUDASetup.get_instance().add_log_entry(f'ERROR: {e!s}')
         CUDASetup.get_instance().add_log_entry(f'CUDA SETUP: libcudart.so path is {cudart_path}')
-        CUDASetup.get_instance().add_log_entry(f'CUDA SETUP: Is seems that your cuda installation is not in your path. See https://github.com/TimDettmers/bitsandbytes/issues/85 for more information.')
+        CUDASetup.get_instance().add_log_entry('CUDA SETUP: Is seems that your cuda installation is not in your path. See https://github.com/TimDettmers/bitsandbytes/issues/85 for more information.')
     version = int(version.value)
     major = version//1000
     minor = (version-(major*1000))//10
