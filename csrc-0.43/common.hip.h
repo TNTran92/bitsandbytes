@@ -1,7 +1,13 @@
+
+#include <hip/hip_runtime.h>
 #include <BinSearch.h>
 
 #ifndef common
 #define common
+
+#ifdef __HIP_PLATFORM_AMD__
+// Compiled with HIP-Clang
+#endif
 
 using namespace BinSearch;
 
@@ -20,6 +26,6 @@ struct quantize_block_args {
 };
 
 
-void *quantize_block(void *arguments);
+void quantize_block(const quantize_block_args& args);
 
 #endif
