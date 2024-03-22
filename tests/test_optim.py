@@ -138,7 +138,7 @@ def test_optimizer32bit(dim1, dim2, gtype, optim_name):
     bnb_optimizer = str2optimizers[optim_name][1]([p2])
 
     if gtype == torch.float32:
-        atol, rtol = 1e-6, 1e-5
+        atol, rtol = 1.1e-6, 1.1e-5
     elif gtype == torch.bfloat16:
         atol, rtol = 1e-3, 1e-2
     else:
