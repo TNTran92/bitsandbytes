@@ -1,13 +1,7 @@
-
-#include <hip/hip_runtime.h>
 #include <BinSearch.h>
 
 #ifndef common
 #define common
-
-#ifdef __HIP_PLATFORM_AMD__
-// Compiled with HIP-Clang
-#endif
 
 using namespace BinSearch;
 

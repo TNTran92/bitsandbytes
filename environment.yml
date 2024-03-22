@@ -39,4 +39,4 @@ dependencies:
 
 ## ENV UPDATE:
 # # add new packages to environment.yml, then:
-# mamba env update -n bnb -f environment.yml
+# mamba env updatpython

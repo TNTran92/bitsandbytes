@@ -1,10 +1,5 @@
-
-#include <hip/hip_runtime.h>
-#include <common.hip.h>
+#include <common.h>
 #include <float.h>
-
-#define  __HIP_PLATFORM_AMD__ 
-
 
 void quantize_block(const quantize_block_args& args) {
     // 1. find absmax in block

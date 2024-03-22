@@ -3,9 +3,6 @@
 // This source code is licensed under the MIT license found in the
 // LICENSE file in the root directory of this source tree.
 
-#ifdef __HIP_PLATFORM_AMD__
-// Compiled with HIP-Clang
-#endif
 
 #ifndef ops_H
 #define ops_H
@@ -14,11 +11,11 @@
 #include <iostream>
 #include <assert.h>
 
-#include <hip/hip_runtime_api.h>
-#include <hip/hip_fp16.h>
-#include <hipblas.h>
-#include <hipblaslt.h>
-#include <hipsparse.h>
+#include <cuda_runtime_api.h>
+#include <cuda_fp16.h>
+#include <cublas_v2.h>
+#include <cublasLt.h>
+#include <cusparse.h>
 #include <vector>
 #include <functional>
 
@@ -27,21 +24,21 @@
 
 
 
-#define HIP_CHECK_RETURN(value) {                      \
-  hipError_t _m_cudaStat = value;                    \
-  if (_m_cudaStat != hipSuccess) {                   \
+#define CUDA_CHECK_RETURN(value) {                      \
+  cudaError_t _m_cudaStat = value;                    \
+  if (_m_cudaStat != cudaSuccess) {                   \
     fprintf(stderr, "Error %s at line %d in file %s\n",         \
-        hipGetErrorString(_m_cudaStat), __LINE__, __FILE__);   \
+        cudaGetErrorString(_m_cudaStat), __LINE__, __FILE__);   \
     exit(1);                              \
   } }
 
 #define THREADS_PER_BLOCKS (512)
 
 #define CHECK_CUSPARSE(value) {                      \
-  hipsparseStatus_t _m_cudaStat = value;                    \
-  if (_m_cudaStat != HIPSPARSE_STATUS_SUCCESS) {                   \
+  cusparseStatus_t _m_cudaStat = value;                    \
+  if (_m_cudaStat != CUSPARSE_STATUS_SUCCESS) {                   \
     fprintf(stderr, "Error %s at line %d in file %s\n",         \
-        hipsparseGetErrorString(_m_cudaStat), __LINE__, __FILE__);   \
+        cusparseGetErrorString(_m_cudaStat), __LINE__, __FILE__);   \
     exit(1);                              \
   } }
 
@@ -49,15 +46,15 @@
 #define THREADS_PER_BLOCKS (512)
 
 
-inline void checkCudaStatus(hipError_t status) {
-    if (status != hipSuccess) {
-        printf("cuda API failed with status %d: %s\n", status, hipGetErrorString(status));
+inline void checkCudaStatus(cudaError_t status) {
+    if (status != cudaSuccess) {
+        printf("cuda API failed with status %d: %s\n", status, cudaGetErrorString(status));
         throw std::logic_error("cuda API failed");
     }
 }
 
-inline int checkCublasStatus(hipblasStatus_t status) {
-    if (status != HIPBLAS_STATUS_SUCCESS) {
+inline int checkCublasStatus(cublasStatus_t status) {
+    if (status != CUBLAS_STATUS_SUCCESS) {
         printf("cuBLAS API failed with status %d\n", status);
         //throw std::logic_error("cuBLAS API failed");
         return 1;
@@ -106,12 +103,12 @@ typedef enum Funcs_t
 class Context
 {
     public:
-				hipblasHandle_t m_handle;
+				cublasHandle_t m_handle;
 
 				Context()
 				{
-					hipblasHandle_t handle;
-					hipblasCreate(&handle);
+					cublasHandle_t handle;
+					cublasCreate_v2(&handle);
 					m_handle = handle;
 				}
 
@@ -120,12 +117,12 @@ class Context
 class ContextLt
 {
     public:
-				hipblasLtHandle_t m_handle;
+				cublasLtHandle_t m_handle;
 
 				ContextLt()
 				{
-					hipblasLtHandle_t handle;
-					hipblasLtCreate(&handle);
+					cublasLtHandle_t handle;
+					cublasLtCreate(&handle);
 					m_handle = handle;
 				}
 
@@ -134,12 +131,12 @@ class ContextLt
 class ContextCusparse
 {
     public:
-				hipsparseHandle_t m_handle;
+				cusparseHandle_t m_handle;
 
 				ContextCusparse()
 				{
-					hipsparseHandle_t handle;
-					hipsparseCreate(&handle);
+					cusparseHandle_t handle;
+					cusparseCreate(&handle);
 					m_handle = handle;
 				}
 
@@ -181,9 +178,9 @@ void strided_gemmex(Context *context, bool transposeA, bool transposeB, int m, i
                     long long int strideA, long long int strideB, long long int strideC, int batchCount);
 
 
-template <int FORMATB, int DTYPE_OUT, int SCALE_ROWS> int igemmlt(hipblasLtHandle_t ltHandle, int m, int n, int k, const int8_t *A, const int8_t *B, void *C, float *row_scale, int lda, int ldb, int ldc);
+template <int FORMATB, int DTYPE_OUT, int SCALE_ROWS> int igemmlt(cublasLtHandle_t ltHandle, int m, int n, int k, const int8_t *A, const int8_t *B, void *C, float *row_scale, int lda, int ldb, int ldc);
 
-template <typename T, int SRC, int TARGET, bool transpose, int DTYPE> void transform(hipblasLtHandle_t ltHandle, T *A, T *out, int dim1, int dim2);
+template <typename T, int SRC, int TARGET, bool transpose, int DTYPE> void transform(cublasLtHandle_t ltHandle, T *A, T *out, int dim1, int dim2);
 void cutlass_igemm(bool transposeA, bool transposeB, int m, int n, int k, void *A, void *B, void *C, int lda, int ldb, int ldc);
 void dequant_mm_int32_fp16(int *A, float *rowStats, float *colStats, half *out, float* newRowStats, float* newcolStats, half* bias, int numRows, int numCols);
 void getColRowStats(half * A, float *rowStats, float *colStats, int *nnz_count_row, float nnz_threshold, int rows, int cols);
@@ -192,7 +189,7 @@ void doubleRowColQuant(half * A, float *rowStats, float *colStats, char *out_col
 
 template <int FORMAT, int TRANSPOSE> void transformRowToFormat(char * A, char *out, int rows, int cols);
 
-void spmm_coo(hipsparseHandle_t handle, int *A_rowidx, int *A_colidx, half *A_vals, int A_nnz, int A_rows, int A_cols, int B_cols, int ldb, half *B, int ldc, half* C, bool transposed_B);
+void spmm_coo(cusparseHandle_t handle, int *A_rowidx, int *A_colidx, half *A_vals, int A_nnz, int A_rows, int A_cols, int B_cols, int ldb, half *B, int ldc, half* C, bool transposed_B);
 
 template <typename T, int BITS> void spmm_coo_very_sparse_naive(int *max_count, int *max_idx, int *offset_rowidx, int *rowidx, int *colidx, half *values, T *B, half *out, float *dequant_stats, int nnz_rows, int nnz, int rowsA, int rowsB, int colsB);
 
