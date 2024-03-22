@@ -10,6 +10,14 @@ Intel i7-13700K
 7900 XTX 24 GB
 64GB system memory
 
+## Installation
+Clone this repo or download the source code
+Create virtual environment
+conda create -n mypython39-rocm python=3.9
+Install torch-rocm 6.0
+pip3 install --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/rocm6.0
+Install this packge 
+python3 -m pip install ./bitsandbytes.tar.gz 
 
 # Original text from bitsandbytes repo
 
