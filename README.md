@@ -1,6 +1,6 @@
 # `bitsandbytes`
 
-This is a ROCM port of the bitsandbytes package. Early version of this port has been attempted but they were poorly maintained and thus, no longer application starting from ROCM 6.0. This repo aims at resolving this pain point and bring the ability to fine tune LLM to AMD GPU, starting with the gfx 1100 family (7900 XTX, 7900 XT, 7900 GRE)
+This is a ROCM port of the bitsandbytes package. Early version of this port has been attempted but they were poorly maintained and thus, no longer applicable starting from ROCM 6.0. This repo aims at resolving this pain point and bring the ability to fine tune LLM to AMD GPU, starting with the gfx 1100 family (7900 XTX, 7900 XT, 7900 GRE)
 for gfx1101 (7700XT, 7800XT) and gfx1102 (7600, 7600XT) as well as other not officially supported card, user can try setting the following flag in pyTorch
 
 HSA_OVERRIDE_GFX_VERSION=11.0.0.
