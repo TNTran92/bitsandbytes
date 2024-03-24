@@ -1,6 +1,6 @@
 
 #include <hip/hip_runtime.h>
-#include <common.hip.h>
+#include <common.h>
 #include <float.h>
 
 #define  __HIP_PLATFORM_AMD__ 

@@ -11,7 +11,7 @@
 #include <limits>
 #include <BinSearch.h>
 #include <cassert>
-#include <common.hip.h>
+#include <common.h>
 
 #define ERR_NOT_IMPLEMENTED 100
 
