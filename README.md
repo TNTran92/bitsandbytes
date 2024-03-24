@@ -1,170 +1,96 @@
-# bitsandbytes-rocm
+# `bitsandbytes`
 
-The bitsandbytes is a lightweight wrapper around CUDA custom functions, in particular 8-bit optimizers, matrix multiplication (LLM.int8()), and quantization functions.
-This fork is the ROCm adaptation of bitsandbytes 0.39.1. The repo is inspired by [agrocylo/bitsandbytes-rocm](https://github.com/agrocylo/bitsandbytes-rocm/tree/main/bitsandbytes), which is a ROCm version of bitsandbytes 0.37. While this fork incorporating the majority of features from bitsandbytes 0.39.1, including the crucial 4 bit quantization feature, certain features such as hipblaslt and hip_bfloat16 have been disabled. Enabling these features is listed as a task for the future.
+This is a ROCM port of the `bitsandbytes` package. Early version of this port has been attempted but they were poorly maintained and thus, no longer applicable starting from ROCM 6.0. This repo aims at resolving this pain point and bring the ability to fine tune LLM to AMD GPU
 
+ROCM 6.0 official supports the following model in the `gfx1100` family (7900 XTX, 7900 XT, 7900 GRE).
 
+For `gfx1101` (7700XT, 7800XT) and `gfx1102` (7600, 7600XT) as well as other not officially supported card, user can try setting the following flag in pyTorch
 
-Resources:
-- [8-bit Optimizer Paper](https://arxiv.org/abs/2110.02861) --  [Video](https://www.youtube.com/watch?v=IxrlHAJtqKE) -- [Docs](https://bitsandbytes.readthedocs.io/en/latest/)
-
-- [LLM.int8() Paper](https://arxiv.org/abs/2208.07339) -- [LLM.int8() Software Blog Post](https://huggingface.co/blog/hf-bitsandbytes-integration) -- [LLM.int8() Emergent Features Blog Post](https://timdettmers.com/2022/08/17/llm-int8-and-emergent-features/)
-
-## TL;DR
-**Requirements**
-Python >=3.8. Linux distribution (Ubuntu, MacOS, etc.) + ROCm >= 5.4.2 or CUDA > 10.0
+HSA_OVERRIDE_GFX_VERSION=11.0.0.
+https://github.com/ROCm/ROCm/issues/2901#issuecomment-1950136950
 
 
-**Installation**:
+As of ROCM 6.0, the following GPU is shown as supported architecture by the compiler but has not been tested. User feedback is encouraged.
+
+-`gfx1030` (6800, 6800XT, 6900XT, 6950XT)
+
+-`gfx942` (MI300)
+
+-`gfx908` (MI200)
+
+-`gfx906`
+
+-`gfx900`
+
+-`gfx90a`
+
+Best effort has been made to to ensure the code runs as well as possible. However, feel free to open an issue or make a PR
+
+The current repo has been compiled and test run on the following system config
+
+Intel i7-13700K
+
+7900 XTX 24 GB
+
+64GB system memory
+
+ROCM version: 6.0.2
+
+Ubuntu 22.04
+
+## Installation
+Clone this repo or download the source code
+
+Create virtual environment
+
+conda create -n mypython39-rocm python=3.9
+
+Install torch-rocm 6.0
+
+pip3 install --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/rocm6.0
+
+Install this packge 
+
+python3 -m pip install ./bitsandbytes.tar.gz 
 
 
-You need to compile from source for ROCm. 
+## ROCM Installation
+Only Ubuntu 22.04 was tested on. Windows WSL have not been tested on.
+Windows is not supported at this time.
 
-Compilation quickstart:
-```bash
-# Run Docker
-docker run -it --network=host --device=/dev/kfd --device=/dev/dri --name=bnb_test --shm-size=8g --cap-add=SYS_PTRACE --security-opt seccomp=unconfined --group-add video rocm/pytorch:rocm5.7_ubuntu22.04_py3.10_pytorch_2.0.1
+For instruction on installing ROCM, check https://rocm.docs.amd.com/projects/install-on-linux/en/latest/tutorial/install-overview.html
 
+## To check bitsandbytes Installation
+>>> import bitsandbytes
 
-# Install Dependencies
-cd <workspace>
-git clone --recurse https://github.com/ROCmSoftwarePlatform/hipBLASLt
-cd hipBLASLt
-git checkout 4b3b34405e7e25cff404f69bfd0a832644430477
-./install.sh -idc
- 
-cd ..
-pip install einops lion_pytorch
+>>> import torch
 
+>>> torch.cuda.get_device_name()
 
-# Install BitsandBytes
-git clone --recurse https://github.com/ROCmSoftwarePlatform/bitsandbytes
-cd bitsandbytes
-git checkout rocm_enabled
-make hip
-python setup.py install
+'Radeon RX 7900 XTX'
 
+>>> torch.cuda.get_device_properties(torch.device)
 
-# Run the unit test. If it runs successfully, the library has been installed successfully.
-pytest -vvv ./tests/ 2>&1 | tee BitsAndBytes_UT_summary.log
-```
+_CudaDeviceProperties(name='Radeon RX 7900 XTX', major=11, minor=0, gcnArchName='gfx1100', total_memory=24560MB, multi_processor_count=48)
 
-**Using Int8 inference with HuggingFace Transformers**
+>>> torch.cuda.get_arch_list()
 
-```python
-from transformers import AutoModelForCausalLM
-model = AutoModelForCausalLM.from_pretrained(
-  'decapoda-research/llama-7b-hf',
-  device_map='auto',
-  load_in_8bit=True,
-  max_memory=f'{int(torch.cuda.mem_get_info()[0]/1024**3)-2}GB')
-```
+['gfx900', 'gfx906', 'gfx908', 'gfx90a', 'gfx1030', 'gfx1100', 'gfx942']
 
-A more detailed example, can be found in [examples/int8_inference_huggingface.py](examples/int8_inference_huggingface.py).
+# Original text from bitsandbytes repo
 
-**Using 8-bit optimizer**:
-1. Comment out optimizer: ``#torch.optim.Adam(....)``
-2. Add 8-bit optimizer of your choice ``bnb.optim.Adam8bit(....)`` (arguments stay the same)
-3. Replace embedding layer if necessary: ``torch.nn.Embedding(..) -> bnb.nn.Embedding(..)``
+The `bitsandbytes` library is a lightweight Python wrapper around CUDA custom functions, in particular 8-bit optimizers, matrix multiplication (LLM.int8()), and 8 & 4-bit quantization functions.
 
+The library includes quantization primitives for 8-bit & 4-bit operations, through `bitsandbytes.nn.Linear8bitLt` and `bitsandbytes.nn.Linear4bit` and 8-bit optimizers through `bitsandbytes.optim` module.
 
-**Using 8-bit Inference**:
-1. Comment out torch.nn.Linear: ``#linear = torch.nn.Linear(...)``
-2. Add bnb 8-bit linear light module: ``linear = bnb.nn.Linear8bitLt(...)`` (base arguments stay the same)
-3. There are two modes:
-   - Mixed 8-bit training with 16-bit main weights. Pass the argument ``has_fp16_weights=True`` (default)
-   - Int8 inference. Pass the argument ``has_fp16_weights=False``
-4. To use the full LLM.int8() method, use the ``threshold=k`` argument. We recommend ``k=6.0``.
-```python
-# LLM.int8()
-linear = bnb.nn.Linear8bitLt(dim1, dim2, bias=True, has_fp16_weights=False, threshold=6.0)
-# inputs need to be fp16
-out = linear(x.to(torch.float16))
-```
+There are ongoing efforts to support further hardware backends, i.e. Intel CPU + GPU, AMD GPU, Apple Silicon. Windows support is quite far along and is on its way as well.
 
+**Please head to the official documentation page:**
 
-## Features
-- 8-bit Matrix multiplication with mixed precision decomposition
-- LLM.int8() inference
-- 8-bit Optimizers: Adam, AdamW, RMSProp, LARS, LAMB, Lion (saves 75% memory)
-- Stable Embedding Layer: Improved stability through better initialization, and normalization
-- 8-bit quantization: Quantile, Linear, and Dynamic quantization
-- Fast quantile estimation: Up to 100x faster than other algorithms
-
-## Using bitsandbytes
-
-### Using Int8 Matrix Multiplication
-
-For straight Int8 matrix multiplication with mixed precision decomposition you can use ``bnb.matmul(...)``. To enable mixed precision decomposition, use the threshold parameter:
-```python
-bnb.matmul(..., threshold=6.0)
-```
-
-For instructions how to use LLM.int8() inference layers in your own code, see the TL;DR above or for extended instruction see [this blog post](https://huggingface.co/blog/hf-bitsandbytes-integration).
-
-### Using the 8-bit Optimizers
-
-With bitsandbytes 8-bit optimizers can be used by changing a single line of code in your codebase. For NLP models we recommend also to use the StableEmbedding layers (see below) which improves results and helps with stable 8-bit optimization.  To get started with 8-bit optimizers, it is sufficient to replace your old optimizer with the 8-bit optimizer in the following way:
-```python
-import bitsandbytes as bnb
-
-# adam = torch.optim.Adam(model.parameters(), lr=0.001, betas=(0.9, 0.995)) # comment out old optimizer
-adam = bnb.optim.Adam8bit(model.parameters(), lr=0.001, betas=(0.9, 0.995)) # add bnb optimizer
-adam = bnb.optim.Adam(model.parameters(), lr=0.001, betas=(0.9, 0.995), optim_bits=8) # equivalent
-
-
-torch.nn.Embedding(...) ->  bnb.nn.StableEmbedding(...) # recommended for NLP models
-```
-
-Note that by default all parameter tensors with less than 4096 elements are kept at 32-bit even if you initialize those parameters with 8-bit optimizers. This is done since such small tensors do not save much memory and often contain highly variable parameters (biases) or parameters that require high precision (batch norm, layer norm). You can change this behavior like so:
-```python
-# parameter tensors with less than 16384 values are optimized in 32-bit
-# it is recommended to use multiplies of 4096
-adam = bnb.optim.Adam8bit(model.parameters(), min_8bit_size=16384)
-```
-
-### Change Bits and other Hyperparameters for Individual Parameters
-
-If you want to optimize some unstable parameters with 32-bit Adam and others with 8-bit Adam, you can use the `GlobalOptimManager`. With this, we can also configure specific hyperparameters for particular layers, such as embedding layers. To do that, we need two things: (1) register the parameter while they are still on the CPU, (2) override the config with the new desired hyperparameters (anytime, anywhere). See our [guide](howto_config_override.md) for more details
-
-### Fairseq Users
-
-To use the Stable Embedding Layer, override the respective `build_embedding(...)` function of your model. Make sure to also use the `--no-scale-embedding` flag to disable scaling of the word embedding layer (nor replaced with layer norm). You can use the optimizers by replacing the optimizer in the respective file (`adam.py` etc.).
-
-## Release and Feature History
-
-For upcoming features and changes and full history see [Patch Notes](CHANGELOG.md).
-
-## Errors
-
-1. RuntimeError: CUDA error: no kernel image is available for execution on the device. [Solution](errors_and_solutions.md#No-kernel-image-available)
-2. __fatbinwrap_.. [Solution](errors_and_solutions.md#fatbinwrap_)
+**[https://huggingface.co/docs/bitsandbytes/main](https://huggingface.co/docs/bitsandbytes/main)**
 
 ## License
 
-The majority of bitsandbytes is licensed under MIT, however portions of the project are available under separate license terms: Pytorch is licensed under the BSD license.
+The majority of bitsandbytes is licensed under MIT, however small portions of the project are available under separate license terms, as the parts adapted from Pytorch are licensed under the BSD license.
 
 We thank Fabio Cannizzo for his work on [FastBinarySearch](https://github.com/fabiocannizzo/FastBinarySearch) which we use for CPU quantization.
-
-## How to cite us
-If you found this library and found LLM.int8() useful, please consider citing our work:
-
-```bibtex
-@article{dettmers2022llmint8,
-  title={LLM.int8(): 8-bit Matrix Multiplication for Transformers at Scale},
-  author={Dettmers, Tim and Lewis, Mike and Belkada, Younes and Zettlemoyer, Luke},
-  journal={arXiv preprint arXiv:2208.07339},
-  year={2022}
-}
-```
-
-For 8-bit optimizers or quantization routines, please consider citing the following work:
-
-```bibtex
-@article{dettmers2022optimizers,
-  title={8-bit Optimizers via Block-wise Quantization},
-  author={Dettmers, Tim and Lewis, Mike and Shleifer, Sam and Zettlemoyer, Luke},
-  journal={9th International Conference on Learning Representations, ICLR},
-  year={2022}
-}
-```
