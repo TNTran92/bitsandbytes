@@ -24,7 +24,7 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 # Define included source files
-set(CPP_FILES csrc/common.cpp csrc/cpu_ops.cpp csrc/pythonInterface.cpp)
+set(CPP_FILES csrc/common.cpp csrc/cpu_ops.cpp csrc/pythonInterface.c)
 #set(CUDA_FILES csrc/ops.cu csrc/kernels.cu)
 set(CUDA_FILES csrc/ops.hip.cpp csrc/kernels.hip.cpp)
 #set(CUDA_FILES obsolete/ops.cu obsolete/kernels.cu)
