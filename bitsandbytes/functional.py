@@ -14,7 +14,9 @@ from torch import Tensor
 
 from bitsandbytes.utils import pack_dict_to_tensor, unpack_tensor_to_dict
 
-from .cextension import COMPILED_WITH_CUDA, lib
+from .cextension import COMPILED_WITH_CUDA, HIP_ENVIRONMENT, lib
+
+# Remark: for AMD GPU we need to disable blocksize == 64
 
 
 # math.prod not compatible with python < 3.8
@@ -25,83 +27,71 @@ name2qmap = {}
 
 if COMPILED_WITH_CUDA:
     """C FUNCTIONS FOR OPTIMIZERS"""
-    str2optimizer32bit = {
-        "adam": (
-            lib.cadam32bit_grad_fp32,
-            lib.cadam32bit_grad_fp16,
-            lib.cadam32bit_grad_bf16,
-        ),
-        "momentum": (
-            lib.cmomentum32bit_grad_32,
-            lib.cmomentum32bit_grad_16,
-        ),
-        "rmsprop": (
-            lib.crmsprop32bit_grad_32,
-            lib.crmsprop32bit_grad_16,
-        ),
-        "lion": (
-            lib.clion32bit_grad_fp32,
-            lib.clion32bit_grad_fp16,
-            lib.clion32bit_grad_bf16,
-        ),
-        "adagrad": (
-            lib.cadagrad32bit_grad_32,
-            lib.cadagrad32bit_grad_16,
-        ),
-    }
+    str2optimizer32bit = {}
+    str2optimizer32bit["adam"] = (lib.cadam32bit_grad_fp32, lib.cadam32bit_grad_fp16, lib.cadam32bit_grad_bf16)
+    str2optimizer32bit["momentum"] = (
+        lib.cmomentum32bit_grad_32,
+        lib.cmomentum32bit_grad_16,
+    )
+    str2optimizer32bit["rmsprop"] = (
+        lib.crmsprop32bit_grad_32,
+        lib.crmsprop32bit_grad_16,
+    )
+    str2optimizer32bit["lion"] = (lib.clion32bit_grad_fp32, lib.clion32bit_grad_fp16, lib.clion32bit_grad_bf16)
+    str2optimizer32bit["adagrad"] = (
+        lib.cadagrad32bit_grad_32,
+        lib.cadagrad32bit_grad_16,
+    )
 
-    str2optimizer8bit = {
-        "adam": (
-            lib.cadam_static_8bit_grad_32,
-            lib.cadam_static_8bit_grad_16,
-        ),
-        "momentum": (
-            lib.cmomentum_static_8bit_grad_32,
-            lib.cmomentum_static_8bit_grad_16,
-        ),
-        "rmsprop": (
-            lib.crmsprop_static_8bit_grad_32,
-            lib.crmsprop_static_8bit_grad_16,
-        ),
-        "lion": (
-            lib.clion_static_8bit_grad_32,
-            lib.clion_static_8bit_grad_16,
-        ),
-        "lamb": (
-            lib.cadam_static_8bit_grad_32,
-            lib.cadam_static_8bit_grad_16,
-        ),
-        "lars": (
-            lib.cmomentum_static_8bit_grad_32,
-            lib.cmomentum_static_8bit_grad_16,
-        ),
-    }
+    str2optimizer8bit = {}
+    str2optimizer8bit["adam"] = (
+        lib.cadam_static_8bit_grad_32,
+        lib.cadam_static_8bit_grad_16,
+    )
+    str2optimizer8bit["momentum"] = (
+        lib.cmomentum_static_8bit_grad_32,
+        lib.cmomentum_static_8bit_grad_16,
+    )
+    str2optimizer8bit["rmsprop"] = (
+        lib.crmsprop_static_8bit_grad_32,
+        lib.crmsprop_static_8bit_grad_16,
+    )
+    str2optimizer8bit["lion"] = (
+        lib.clion_static_8bit_grad_32,
+        lib.clion_static_8bit_grad_16,
+    )
+    str2optimizer8bit["lamb"] = (
+        lib.cadam_static_8bit_grad_32,
+        lib.cadam_static_8bit_grad_16,
+    )
+    str2optimizer8bit["lars"] = (
+        lib.cmomentum_static_8bit_grad_32,
+        lib.cmomentum_static_8bit_grad_16,
+    )
 
-    str2optimizer8bit_blockwise = {
-        "adam": (
-            lib.cadam_8bit_blockwise_grad_fp32,
-            lib.cadam_8bit_blockwise_grad_fp16,
-            lib.cadam_8bit_blockwise_grad_bf16,
-        ),
-        "momentum": (
-            lib.cmomentum_8bit_blockwise_grad_fp32,
-            lib.cmomentum_8bit_blockwise_grad_fp16,
-        ),
-        "rmsprop": (
-            lib.crmsprop_8bit_blockwise_grad_fp32,
-            lib.crmsprop_8bit_blockwise_grad_fp16,
-        ),
-        "lion": (
-            lib.clion_8bit_blockwise_grad_fp32,
-            lib.clion_8bit_blockwise_grad_fp16,
-            lib.clion_8bit_blockwise_grad_bf16,
-        ),
-        "adagrad": (
-            lib.cadagrad_8bit_blockwise_grad_fp32,
-            lib.cadagrad_8bit_blockwise_grad_fp16,
-        ),
-    }
-
+    str2optimizer8bit_blockwise = {}
+    str2optimizer8bit_blockwise["adam"] = (
+        lib.cadam_8bit_blockwise_grad_fp32,
+        lib.cadam_8bit_blockwise_grad_fp16,
+        lib.cadam_8bit_blockwise_grad_bf16,
+    )
+    str2optimizer8bit_blockwise["momentum"] = (
+        lib.cmomentum_8bit_blockwise_grad_fp32,
+        lib.cmomentum_8bit_blockwise_grad_fp16,
+    )
+    str2optimizer8bit_blockwise["rmsprop"] = (
+        lib.crmsprop_8bit_blockwise_grad_fp32,
+        lib.crmsprop_8bit_blockwise_grad_fp16,
+    )
+    str2optimizer8bit_blockwise["lion"] = (
+        lib.clion_8bit_blockwise_grad_fp32,
+        lib.clion_8bit_blockwise_grad_fp16,
+        lib.clion_8bit_blockwise_grad_bf16,
+    )
+    str2optimizer8bit_blockwise["adagrad"] = (
+        lib.cadagrad_8bit_blockwise_grad_fp32,
+        lib.cadagrad_8bit_blockwise_grad_fp16,
+    )
 
 class GlobalPageManager:
     _instance = None
@@ -120,7 +110,7 @@ class GlobalPageManager:
         return cls._instance
 
     def prefetch_all(self, to_cpu=False):
-        # assume the first added, will be the
+        # assume the first added, will be hte
         # ones that are used first, so swap them in last
         # in the case they are evicted again
         for t in self.paged_tensors[::-1]:
@@ -160,7 +150,11 @@ class Cusparse_Context:
         raise RuntimeError("Call get_instance() instead")
 
     def initialize(self):
-        self.context = ct.c_void_p(lib.get_cusparse())
+        #self.context = ct.c_void_p(lib.get_cusparse())
+        if torch.version.cuda:
+            self.context = ct.c_void_p(lib.get_cusparse())
+        elif torch.version.hip:
+            self.context = ct.c_void_p(lib.get_hipsparse())
 
     @classmethod
     def get_instance(cls):
@@ -219,7 +213,7 @@ def elementwise_func(func_name, A, B, value, prefetch=True):
         # paged function are fully asynchronous
         # if we return from this function, we want to the tensor
         # to be in the correct state, that is the final state after the
-        # operation occurred. So we synchronize.
+        # operation occured. So we synchronize.
         torch.cuda.synchronize()
 
 def fill(A, value, device=None, prefetch=True): elementwise_func('fill', A, None, value)
@@ -244,7 +238,6 @@ def create_linear_map(signed=True, total_bits=8, add_zero=True):
     else:
         l = values.numel()//2  # noqa: E741
         return torch.Tensor(values[:l].tolist() + [0]*gap + values[l:].tolist())
-
 
 def create_normal_map(offset=0.9677083, use_extra_value=True):
     try:
@@ -412,8 +405,7 @@ def is_on_gpu(tensors):
         raise TypeError(f'Input tensors need to be on the same GPU, but found the following tensor and device combinations:\n {[(t.shape, t.device) for t in tensors]}')
     return on_gpu
 
-
-def get_ptr(A: Optional[Tensor]) -> Optional[ct.c_void_p]:
+def get_ptr(A: Tensor) -> ct.c_void_p:
     """
     Get the ctypes pointer from a PyTorch Tensor.
 
@@ -503,6 +495,10 @@ def nvidia_transform(
     state=None,
     ld=None,
 ):
+    if HIP_ENVIRONMENT:
+        to_order = "col" if to_order in ["col32","col_turing","col_ampere"] else to_order
+        from_order = "col" if from_order in ["col32","col_turing","col_ampere"] else from_order
+
     if state is None:
         state = (A.shape, from_order)
     else:
@@ -534,7 +530,7 @@ def nvidia_transform(
     return out, new_state
 
 
-def estimate_quantiles(A: Tensor, out: Optional[torch.Tensor] = None, offset: float = 1 / 512, num_quantiles=256) -> Tensor:
+def estimate_quantiles(A: Tensor, out: Tensor = None, offset: float = 1 / 512, num_quantiles=256) -> Tensor:
     '''
     Estimates 256 equidistant quantiles on the input tensor eCDF.
 
@@ -589,7 +585,7 @@ def estimate_quantiles(A: Tensor, out: Optional[torch.Tensor] = None, offset: fl
 
 
 class QuantState:
-    """container for quantization state components to work with Params4bit and similar classes"""
+    """container for quantization state components to work with Params4bit and similar clases"""
     valid_quant_types = ('fp4', 'nf4')
     valid_qs_type_keys = [f"bitsandbytes__{x}" for x in valid_quant_types]
     valid_qs_keys = ['absmax', 'quant_map', 'nested_absmax', 'nested_quant_map', 'quant_state', 'quant_type',
@@ -627,7 +623,7 @@ class QuantState:
 
         qs_dict: based on state_dict, with only relevant keys, striped of prefixes.
 
-        item with key `quant_state.bitsandbytes__[nf4/fp4]` may contain minor and non-tensor quant state items.
+        item with key `quant_state.bitsandbytes__[nf4/fp4]` may contain minor and non-tensor quant state items.        
         """
 
         # unpacking tensor with non-tensor components
@@ -772,7 +768,10 @@ def quantize_blockwise(
         out = torch.zeros_like(A, dtype=torch.uint8)
 
     if A.device.type != 'cpu':
-        assert blocksize in [4096, 2048, 1024, 512, 256, 128, 64]
+        if not HIP_ENVIRONMENT:
+            assert blocksize in [4096, 2048, 1024, 512, 256, 128, 64]
+        else:
+            assert blocksize in [4096, 2048, 1024, 512, 256, 128]
         cblocksize = ct.c_int32(blocksize)
         prev_device = pre_call(A.device)
         code = code.to(A.device)
@@ -844,7 +843,7 @@ def dequantize_blockwise(
 
     if quant_state is None:
        quant_state = QuantState(absmax=absmax, code=code, blocksize=blocksize, dtype=torch.float32)
-
+    
     absmax = quant_state.absmax
     if quant_state.nested:
         absmax = dequantize_blockwise(quant_state.absmax, quant_state.state2)
@@ -857,8 +856,11 @@ def dequantize_blockwise(
     if A.device.type != 'cpu':
         device = pre_call(A.device)
         code = quant_state.code.to(A.device)
-        if quant_state.blocksize not in [2048, 4096, 1024, 512, 256, 128, 64]:
-            raise ValueError(f"The blockwise of {quant_state.blocksize} is not supported. Supported values: [2048, 4096, 1024, 512, 256, 128, 64]")
+        supported_blocksizes = [2048, 4096, 1024, 512, 256, 128, 64]
+        if HIP_ENVIRONMENT:
+            supported_blocksizes = supported_blocksizes[:-1]
+        if quant_state.blocksize not in supported_blocksizes:
+            raise ValueError(f"The blockwise of {quant_state.blocksize} is not supported. Supported values: {supported_blocksizes}")
         is_on_gpu([A, absmax, out])
         if out.dtype == torch.float32:
             lib.cdequantize_blockwise_fp32(get_ptr(quant_state.code), get_ptr(A), get_ptr(absmax), get_ptr(out), ct.c_int(quant_state.blocksize), ct.c_int(A.numel()))
@@ -926,22 +928,17 @@ def get_4bit_type(typename, device=None, blocksize=64):
     return data.to(device)
 
 
-def quantize_fp4(A: Tensor, absmax: Optional[torch.Tensor] = None, out: Optional[torch.Tensor] = None, blocksize=64, compress_statistics=False, quant_storage=torch.uint8):
+def quantize_fp4(A: Tensor, absmax: Tensor = None, out: Tensor = None, blocksize=None, compress_statistics=False, quant_storage=torch.uint8):
+    if blocksize is None:
+        blocksize = 64 if not HIP_ENVIRONMENT else 128
     return quantize_4bit(A, absmax, out, blocksize, compress_statistics, 'fp4', quant_storage)
 
-def quantize_nf4(A: Tensor, absmax: Optional[torch.Tensor] = None, out: Optional[torch.Tensor] = None, blocksize=64, compress_statistics=False, quant_storage=torch.uint8):
+def quantize_nf4(A: Tensor, absmax: Tensor = None, out: Tensor = None, blocksize=None, compress_statistics=False, quant_storage=torch.uint8):
+    if blocksize is None:
+        blocksize = 64 if not HIP_ENVIRONMENT else 128
     return quantize_4bit(A, absmax, out, blocksize, compress_statistics, 'nf4', quant_storage)
 
-
-def quantize_4bit(
-    A: Tensor,
-    absmax: Optional[torch.Tensor] = None,
-    out: Optional[torch.Tensor] = None,
-    blocksize=64,
-    compress_statistics=False,
-    quant_type='fp4',
-    quant_storage=torch.uint8,
-) -> Tuple[Tensor, QuantState]:
+def quantize_4bit(A: Tensor, absmax: Tensor = None, out: Tensor = None, blocksize=None, compress_statistics=False, quant_type='fp4', quant_storage=torch.uint8) -> Tensor:
     """
     Quantize tensor A in blocks of 4-bit values.
 
@@ -985,7 +982,10 @@ def quantize_4bit(
         mod = dtype2bytes[quant_storage] * 2
         out = torch.zeros(((n+1)//mod, 1), dtype=quant_storage, device=A.device)
 
-    assert blocksize in [4096, 2048, 1024, 512, 256, 128, 64]
+    if not HIP_ENVIRONMENT:
+        assert blocksize in [4096, 2048, 1024, 512, 256, 128, 64]
+    else:
+        assert blocksize in [4096, 2048, 1024, 512, 256, 128]
 
     prev_device = pre_call(A.device)
     is_on_gpu([A, out, absmax])
@@ -1022,13 +1022,19 @@ def quantize_4bit(
 
     return out, state
 
-def dequantize_fp4(A: Tensor, quant_state: Optional[QuantState] = None, absmax: Optional[torch.Tensor] = None, out: Optional[torch.Tensor] = None, blocksize: int = 64) -> Tensor:
+def dequantize_fp4(A: Tensor, quant_state: QuantState = None, absmax: Tensor = None, out: Tensor = None, blocksize: int = None) -> Tensor:
+    if blocksize is None:
+        blocksize = 64 if not HIP_ENVIRONMENT else 128
+
     return dequantize_4bit(A, quant_state, absmax, out, blocksize, 'fp4')
 
-def dequantize_nf4(A: Tensor, quant_state: Optional[QuantState] = None, absmax: Optional[torch.Tensor] = None, out: Optional[torch.Tensor] = None, blocksize: int = 64) -> Tensor:
+def dequantize_nf4(A: Tensor, quant_state: QuantState = None, absmax: Tensor = None, out: Tensor = None, blocksize: int = None) -> Tensor:
+    if blocksize is None:
+        blocksize = 64 if not HIP_ENVIRONMENT else 128
+    
     return dequantize_4bit(A, quant_state, absmax, out, blocksize, 'nf4')
 
-def dequantize_4bit(A: Tensor, quant_state: Optional[QuantState] = None, absmax: Optional[torch.Tensor] = None, out: Optional[torch.Tensor] = None, blocksize: int = 64, quant_type='fp4') -> Tensor:
+def dequantize_4bit(A: Tensor, quant_state: QuantState = None, absmax: Tensor = None, out: Tensor = None, blocksize: int = 128, quant_type='fp4') -> Tensor:
     """
     Dequantizes FP4 blockwise quantized values.
 
@@ -1055,8 +1061,15 @@ def dequantize_4bit(A: Tensor, quant_state: Optional[QuantState] = None, absmax:
     torch.Tensor:
         Dequantized tensor.
     """
-    if blocksize not in [2048, 4096, 1024, 512, 256, 128, 64]:
-        raise ValueError(f"The blockwise of {blocksize} is not supported. Supported values: [2048, 4096, 1024, 512, 256, 128, 64]")
+    if blocksize is None:
+        blocksize = 64 if not HIP_ENVIRONMENT else 128
+    
+    supported_blocksizes = [2048, 4096, 1024, 512, 256, 128, 64]
+    if HIP_ENVIRONMENT:
+        supported_blocksizes = supported_blocksizes[:-1]
+
+    if blocksize not in supported_blocksizes:
+        raise ValueError(f"The blockwise of {blocksize} is not supported. Supported values: {supported_blocksizes}")
     if quant_type not in ['fp4', 'nf4']:
         raise NotImplementedError(f'4-bit quantization data type {quant_type} is not implemented.')
 
@@ -1105,11 +1118,7 @@ def dequantize_4bit(A: Tensor, quant_state: Optional[QuantState] = None, absmax:
     else: return out
 
 
-def quantize(
-    A: Tensor,
-    code: Optional[torch.Tensor] = None,
-    out: Optional[torch.Tensor] = None,
-) -> Tuple[Tensor, Tuple[Tensor, Tensor]]:
+def quantize(A: Tensor, code: Tensor = None, out: Tensor = None) -> Tensor:
     if code is None:
         if "dynamic" not in name2qmap:
             name2qmap["dynamic"] = create_dynamic_map().to(A.device)
@@ -1125,10 +1134,10 @@ def quantize(
 
 def dequantize(
     A: Tensor,
-    state: Optional[Tuple[Tensor, Tensor]] = None,
-    absmax: Optional[torch.Tensor] = None,
-    code: Optional[torch.Tensor] = None,
-    out: Optional[torch.Tensor] = None,
+    state: Tuple[Tensor, Tensor] = None,
+    absmax: Tensor = None,
+    code: Tensor = None,
+    out: Tensor = None,
 ) -> Tensor:
     assert state is not None or absmax is not None
     if code is None and state is None:
@@ -1892,13 +1901,23 @@ def igemmlt(A, B, SA, SB, out=None, Sout=None, dtype=torch.int32):
         return torch.empty(tuple(shapeA[:2] + [shapeB[0]]), device=A.device, dtype=torch.float16)
 
     if dimsA == 2 and out is None:
-        out, Sout = get_transform_buffer(
-            (shapeA[0], shapeB[0]), dtype, A.device, "col32", "row"
-        )
+        if HIP_ENVIRONMENT:
+            out, Sout = get_transform_buffer(
+                (shapeA[0], shapeB[0]), dtype, A.device, "col", "row"
+            )
+        else:
+            out, Sout = get_transform_buffer(
+                (shapeA[0], shapeB[0]), dtype, A.device, "col32", "row"
+            )
     elif dimsA == 3 and out is None:
-        out, Sout = get_transform_buffer(
-            (shapeA[0], shapeA[1], shapeB[0]), dtype, A.device, "col32", "row"
-        )
+        if HIP_ENVIRONMENT:
+            out, Sout = get_transform_buffer(
+                (shapeA[0], shapeA[1], shapeB[0]), dtype, A.device, "col", "row"
+            )
+        else:
+            out, Sout = get_transform_buffer(
+                (shapeA[0], shapeA[1], shapeB[0]), dtype, A.device, "col32", "row"
+            )
 
     assert dimsB != 3, "len(B.shape)==3 not supported"
     assert A.device.type == "cuda"
@@ -1906,9 +1925,14 @@ def igemmlt(A, B, SA, SB, out=None, Sout=None, dtype=torch.int32):
     assert A.dtype == torch.int8
     assert B.dtype == torch.int8
     assert out.dtype == dtype
-    assert SA[1] == "col32"
-    assert SB[1] in ["col_turing", "col_ampere"]
-    assert Sout[1] == "col32"
+    if HIP_ENVIRONMENT:
+        assert SA[1] == "col"
+        assert SB[1] == "col"
+        assert Sout[1] == "col"
+    else:
+        assert SA[1] == "col32"
+        assert SB[1] in ["col_turing", "col_ampere"]
+        assert Sout[1] == "col32"
     assert (
         shapeA[-1] == shapeB[-1]
     ), f"Matmullt only supports A @ B^T. Inner matrix dimensions do not match: A @ B = {shapeA} @ {shapeB}"
@@ -1922,17 +1946,21 @@ def igemmlt(A, B, SA, SB, out=None, Sout=None, dtype=torch.int32):
     ptrC = get_ptr(out)
 
     k = shapeA[-1]
-    lda = ct.c_int32(m * 32)
-    if formatB == "col_turing":
-        # turing: tiles with rows filled up to multiple of 8 rows by 32 columns
-        # n = rows
-        ldb = ct.c_int32(((rows + 7) // 8) * 8 * 32)
+    if HIP_ENVIRONMENT:
+        lda = ct.c_int32(m)
+        ldb = ct.c_int32(shapeB[0])
+        ldc = ct.c_int32(m)
     else:
-        # ampere: tiles with rows filled up to multiple of 32 rows by 32 columns
-        # n = rows
-        ldb = ct.c_int32(((rows + 31) // 32) * 32 * 32)
-
-    ldc = ct.c_int32(m * 32)
+        lda = ct.c_int32(m * 32)
+        if formatB == "col_turing":
+            # turing: tiles with rows filled up to multiple of 8 rows by 32 columns
+            # n = rows
+            ldb = ct.c_int32(((rows + 7) // 8) * 8 * 32)
+        else:
+            # ampere: tiles with rows filled up to multiple of 32 rows by 32 columns
+            # n = rows
+            ldb = ct.c_int32(((rows + 31) // 32) * 32 * 32)
+        ldc = ct.c_int32(m * 32)
     m = ct.c_int32(m)
     n = ct.c_int32(n)
     k = ct.c_int32(k)
@@ -1940,7 +1968,7 @@ def igemmlt(A, B, SA, SB, out=None, Sout=None, dtype=torch.int32):
     has_error = 0
     ptrRowScale = get_ptr(None)
     is_on_gpu([A, B, out])
-    if formatB == 'col_turing':
+    if formatB == 'col_turing' or HIP_ENVIRONMENT:
         if dtype == torch.int32:
             has_error = lib.cigemmlt_turing_32(
                 ptr, m, n, k, ptrA, ptrB, ptrC, ptrRowScale, lda, ldb, ldc
@@ -1959,10 +1987,7 @@ def igemmlt(A, B, SA, SB, out=None, Sout=None, dtype=torch.int32):
                 ptr, m, n, k, ptrA, ptrB, ptrC, ptrRowScale, lda, ldb, ldc
             )
 
-    if has_error == 100:  # `ERR_NOT_IMPLEMENTED` is defined as 100 in `ops.cu`
-        raise NotImplementedError("igemmlt not available (probably built with NO_CUBLASLT)")
-
-    if has_error:
+    if has_error == 1:
         print(f'A: {shapeA}, B: {shapeB}, C: {Sout[0]}; (lda, ldb, ldc): {(lda, ldb, ldc)}; (m, n, k): {(m, n, k)}')
         raise Exception('cublasLt ran into an error!')
 
@@ -1981,6 +2006,8 @@ def mm_dequant(
     new_col_stats=None,
     bias=None
 ):
+    if HIP_ENVIRONMENT:
+        A, quant_state = nvidia_transform(A, "row", state = quant_state)
     assert A.dtype == torch.int32
     if bias is not None: assert bias.dtype == torch.float16
     out_shape = quant_state[0]
@@ -2550,7 +2577,10 @@ def dequant_min_max(xq, A, B, SA, SB, dtype=torch.half):
 def extract_outliers(A, SA, idx):
     shapeA = SA[0]
     formatA = SA[1]
-    assert formatA in ["col_turing", "col_ampere"]
+    if not HIP_ENVIRONMENT:
+        assert formatA in ["col_turing", "col_ampere"]
+    else:
+        assert formatA in ["col"]
     assert A.device.type == "cuda"
 
     out = torch.zeros(
@@ -2565,7 +2595,7 @@ def extract_outliers(A, SA, idx):
     ptrOut = get_ptr(out)
 
     prev_device = pre_call(A.device)
-    if formatA == 'col_turing':
+    if formatA == 'col_turing' or HIP_ENVIRONMENT:
         lib.cextractOutliers_turing(ptrA, ptrIdx, ptrOut, idx_size, rows, cols)
     elif formatA == "col_ampere":
         lib.cextractOutliers_ampere(ptrA, ptrIdx, ptrOut, idx_size, rows, cols)

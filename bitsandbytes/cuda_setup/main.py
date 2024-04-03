@@ -4,7 +4,7 @@ extract factors the build is dependent on:
     [ ] TODO: Q - What if we have multiple GPUs of different makes?
 - CUDA version
 - Software:
-    - CPU-only: only CPU quantization functions (no optimizer, no matrix multiply)
+    - CPU-only: only CPU quantization functions (no optimizer, no matrix multipl)
     - CuBLAS-LT: full-build 8-bit optimizer
     - no CuBLAS-LT: no 8-bit matrix multiplication (`nomatmul`)
 
@@ -161,7 +161,7 @@ class CUDASetup:
                     self.add_log_entry('3. CUDA not installed')
                     self.add_log_entry('4. You have multiple conflicting CUDA libraries')
                     self.add_log_entry('5. Required library not pre-compiled for this bitsandbytes release!')
-                    self.add_log_entry('CUDA SETUP: If you compiled from source, try again with `make CUDA_VERSION=DETECTED_CUDA_VERSION` for example, `make CUDA_VERSION=118`.')
+                    self.add_log_entry('CUDA SETUP: If you compiled from source, try again with `make CUDA_VERSION=DETECTED_CUDA_VERSION` for example, `make CUDA_VERSION=113`.')
                     self.add_log_entry('CUDA SETUP: The CUDA version for the compile might depend on your conda install. Inspect CUDA version via `conda list | grep cuda`.')
                     self.add_log_entry('='*80)
                     self.add_log_entry('')

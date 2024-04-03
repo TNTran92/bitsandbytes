@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from functools import reduce  # Required in Python 3
 import operator
-from typing import Callable, Optional, Tuple
+from typing import Optional, Tuple
 import warnings
 from warnings import warn
 
@@ -53,10 +53,7 @@ class GlobalOutlierPooler:
         return torch.Tensor(list(self.outliers)).to(torch.int64)
 
 
-def get_inverse_transform_indices(
-    transform_tile: Callable[[torch.Tensor], torch.Tensor],
-    tile_size: Tuple[int, int],
-):
+def get_inverse_transform_indices(transform_tile: callable, tile_size: Tuple[int, int]):
     """
     Compute a permutation of indices that invert the specified (tiled) matrix transformation
 
@@ -224,6 +221,8 @@ matmul_cublas = MatMul8bit.apply
 
 def supports_igemmlt(device: torch.device) -> bool:
     """check if this device supports the optimized int8 kernel"""
+    if torch.version.hip:
+        return True
     if torch.cuda.get_device_capability(device=device) < (7, 5):
         return False
     device_name = torch.cuda.get_device_name(device=device)
