@@ -209,3 +209,4 @@ class PagedAdamW32bit(Optimizer2State):
                 Whether the optimizer is a paged optimizer or not.
         """
         super().__init__( "adam", params, lr, betas, eps, weight_decay, 32, args, min_8bit_size, percentile_clipping, block_wise, is_paged=True)
+
