@@ -29,7 +29,7 @@ set(CUDA_FILES csrc/ops.hip.cpp csrc/kernels.hip.cpp)
 # C++ sources are always included
 list(APPEND SRC_FILES ${CPP_FILES})
 
-set(COMPUTE_BACKEND "hip" CACHE STRING "The compute backend to use (cpu, hip)")
+set(COMPUTE_BACKEND "cpu" CACHE STRING "The compute backend to use (cpu, hip)")
 set_property(CACHE COMPUTE_BACKEND PROPERTY STRINGS cpu cuda mps hip)
 option(PTXAS_VERBOSE "Pass through -v flag to PTX Assembler" OFF)
 

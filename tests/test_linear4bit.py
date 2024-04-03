@@ -24,7 +24,6 @@ def test_linear_serialization(quant_type, compress_statistics, bias, quant_stora
     compute_dtype = None
     device = "cuda"
     layer_shape = (300, 400)
-
     linear = torch.nn.Linear(*layer_shape, dtype=original_dtype, device="cpu")  # original layer
 
     # Quantizing original layer
@@ -78,10 +77,9 @@ def test_linear_serialization(quant_type, compress_statistics, bias, quant_stora
         compute_dtype=compute_dtype,
         compress_statistics=compress_statistics,
         quant_type=quant_type,
-        quant_storage=storage[quant_storage],
         device="meta",
     )
-    linear_qs.weight = bnb.nn.Params4bit(data=linear.weight, requires_grad=False, quant_type=quant_type, quant_storage=storage[quant_storage])
+    linear_qs.weight = bnb.nn.Params4bit(data=linear.weight, requires_grad=False, quant_type=quant_type)
     if bias:
         linear_qs.bias = torch.nn.Parameter(linear.bias)
     linear_qs = linear_qs.to(device)
