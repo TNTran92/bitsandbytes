@@ -7,7 +7,7 @@
 #include <ops.cuh>
 #endif
 #if BUILD_HIP
-#include <ops.hiph>
+#include <ops.hip.h>
 #endif
 #include <cpu_ops.h>
 

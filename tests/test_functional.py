@@ -91,6 +91,7 @@ def setup():
 def teardown():
     pass
 
+
 @pytest.mark.parametrize(
     "dtype", [torch.float32, torch.float16], ids=["float", "half"]
 )
@@ -109,6 +110,7 @@ def test_estimate_quantiles(dtype):
     quantiles = torch.quantile(A.float(), percs)
     diff = torch.abs(code - quantiles)
     assert (diff > 5e-02).sum().item() == 0
+
 
 def test_quantile_quantization():
     for i in range(100):
@@ -700,6 +702,7 @@ names = [
     for vals in values
 ]
 
+
 @pytest.mark.parametrize("dim1, dim2, dim3, dim4, dims, ldb", values, ids=names)
 def test_igemmlt_int(dim1, dim2, dim3, dim4, dims, ldb):
     for i in range(k):
@@ -722,7 +725,7 @@ def test_igemmlt_int(dim1, dim2, dim3, dim4, dims, ldb):
         C3, S = F.nvidia_transform(C2, "row", state=SC)
         torch.testing.assert_close(C1, C3.float())
 
-        ## transpose
+        # transpose
         B = torch.randint(-128, 127, size=(dim3, dim4), device="cuda").to(
             torch.int8
         )
@@ -746,6 +749,7 @@ names = [
     "dim1_{}_dim2_{}_dim3_{}_dim4_{}_dims_{}".format(*vals)
     for vals in values
 ]
+
 
 @pytest.mark.parametrize("dim1, dim2, dim3, dim4, dims", values, ids=names)
 def test_igemmlt_half(dim1, dim2, dim3, dim4, dims):

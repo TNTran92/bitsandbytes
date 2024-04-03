@@ -452,13 +452,13 @@ def get_transform_buffer(
         rows = shape[0] * shape[1]
     cols = shape[-1]
 
+    state = (shape, to_order)
     if transpose:
         # swap dims
         tmp = rows
         rows = cols
         cols = tmp
-        shape = shape[::-1]
-    state = (shape, to_order)
+        state = (shape[::-1], to_order)
 
     if to_order == "row" or to_order == "col":
         return init_func(shape, dtype=dtype, device=device), state
@@ -499,7 +499,7 @@ def nvidia_transform(
         from_order = state[1]
     if out is None:
         out, new_state = get_transform_buffer(
-            state[0], A.dtype, A.device, to_order, state[1], transpose
+            state[0], A.dtype, A.device, to_order, state[1]
         )
     else:
         new_state = (state[1], to_order)
@@ -617,7 +617,7 @@ class QuantState:
 
         qs_dict: based on state_dict, with only relevant keys, striped of prefixes.
 
-        item with key `quant_state.bitsandbytes__[nf4/fp4]` may contain minor and non-tensor quant state items.
+        item with key `quant_state.bitsandbytes__[nf4/fp4]` may contain minor and non-tensor quant state items.        
         """
 
         # unpacking tensor with non-tensor components
@@ -815,7 +815,7 @@ def dequantize_blockwise(
 
     if quant_state is None:
        quant_state = QuantState(absmax=absmax, code=code, blocksize=blocksize, dtype=torch.float32)
-
+    
     absmax = quant_state.absmax
     if quant_state.nested:
         absmax = dequantize_blockwise(quant_state.absmax, quant_state.state2)

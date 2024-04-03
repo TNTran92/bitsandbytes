@@ -5,8 +5,8 @@
 // This source code is licensed under the MIT license found in the
 // LICENSE file in the root directory of this source tree.
 
-#include <ops.hiph>
-#include <kernels.hiph>
+#include <ops.hip.h>
+#include <kernels.hip.h>
 #include <hipcub/hipcub.hpp>
 #include <hipblas/hipblas.h>
 #include <hipsparse/hipsparse.h>
