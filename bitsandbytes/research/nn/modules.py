@@ -1,9 +1,12 @@
-from typing import TypeVar
+from typing import Optional, TypeVar, Union, overload
 
 import torch
-from torch import nn
+import torch.nn.functional as F
+from torch import Tensor, device, dtype, nn
 
 import bitsandbytes as bnb
+from bitsandbytes.optim import GlobalOptimManager
+from bitsandbytes.utils import OutlierTracer, find_outlier_dims
 
 T = TypeVar("T", bound="torch.nn.Module")
 
@@ -28,19 +31,11 @@ class LinearFP8Mixed(nn.Linear):
             self.bw_code = bnb.functional.create_fp8_map(True, 5, 2, 8).to(x.device)
             self.fw_code = bnb.functional.create_fp8_map(True, 4, 3, 8).to(x.device)
 
-        out = bnb.research.matmul_fp8_mixed(
-            x,
-            self.weight.t(),
-            fw_code=self.fw_code,
-            bw_code=self.bw_code,
-            bsz=self.bsz,
-            bsz2=self.bsz2,
-        )
+        out = bnb.research.matmul_fp8_mixed(x, self.weight.t(), fw_code=self.fw_code, bw_code=self.bw_code, bsz=self.bsz, bsz2=self.bsz2)
         if self.bias is not None:
             out += self.bias
 
         return out
-
 
 class LinearFP8Global(nn.Linear):
     def __init__(self, input_features, output_features, bias=True):
@@ -62,14 +57,7 @@ class LinearFP8Global(nn.Linear):
             self.bw_code = bnb.functional.create_fp8_map(True, 5, 2, 8).to(x.device)
             self.fw_code = bnb.functional.create_fp8_map(True, 4, 3, 8).to(x.device)
 
-        out = bnb.matmul_fp8_global(
-            x,
-            self.weight.t(),
-            fw_code=self.fw_code,
-            bw_code=self.bw_code,
-            bsz=self.bsz,
-            bsz2=self.bsz2,
-        )
+        out = bnb.matmul_fp8_global(x, self.weight.t(), fw_code=self.fw_code, bw_code=self.bw_code, bsz=self.bsz, bsz2=self.bsz2)
         if self.bias is not None:
             out += self.bias
 

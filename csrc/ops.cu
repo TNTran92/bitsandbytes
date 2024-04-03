@@ -11,8 +11,6 @@
 #include <cassert>
 #include <common.h>
 
-#define ERR_NOT_IMPLEMENTED 100
-
 
 using namespace BinSearch;
 using std::cout;
@@ -423,7 +421,14 @@ template void transform<int32_t, COL32, ROW, false, 32>(cublasLtHandle_t ltHandl
 template <int FORMATB, int DTYPE_OUT, int SCALE_ROWS> int igemmlt(cublasLtHandle_t ltHandle, int m, int n, int k, const int8_t *A, const int8_t *B, void *C, float *row_scale, int lda, int ldb, int ldc)
 {
 #ifdef NO_CUBLASLT
-	return ERR_NOT_IMPLEMENTED;
+  cout << "" << endl;
+  cout << "=============================================" << endl;
+  cout << "ERROR: Your GPU does not support Int8 Matmul!" << endl;
+  cout << "=============================================" << endl;
+  cout << "" << endl;
+  assert(false);
+
+	return 0;
 #else
     int has_error = 0;
     cublasLtMatmulDesc_t matmulDesc = NULL;
@@ -479,7 +484,7 @@ template <int FORMATB, int DTYPE_OUT, int SCALE_ROWS> int igemmlt(cublasLtHandle
       printf("error detected");
 
     return has_error;
-#endif // NO_CUBLASLT
+#endif
 }
 
 int fill_up_to_nearest_multiple(int value, int multiple)

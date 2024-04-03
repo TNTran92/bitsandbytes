@@ -1,27 +1,20 @@
-from functools import partial
-
 import torch
 import torch.nn as nn
+import time
+from functools import partial
+
+from bitsandbytes.triton.triton_utils import is_triton_available
 
 from bitsandbytes.triton.dequantize_rowwise import dequantize_rowwise
-from bitsandbytes.triton.int8_matmul_mixed_dequantize import (
-    int8_matmul_mixed_dequantize,
-)
-from bitsandbytes.triton.int8_matmul_rowwise_dequantize import (
-    int8_matmul_rowwise_dequantize,
-)
-from bitsandbytes.triton.quantize_columnwise_and_transpose import (
-    quantize_columnwise_and_transpose,
-)
-from bitsandbytes.triton.quantize_global import (
-    quantize_global,
-    quantize_global_transpose,
-)
 from bitsandbytes.triton.quantize_rowwise import quantize_rowwise
-from bitsandbytes.triton.triton_utils import is_triton_available
+from bitsandbytes.triton.quantize_columnwise_and_transpose import quantize_columnwise_and_transpose
+from bitsandbytes.triton.int8_matmul_rowwise_dequantize import int8_matmul_rowwise_dequantize
+from bitsandbytes.triton.quantize_global import quantize_global, quantize_global_transpose
+from bitsandbytes.triton.int8_matmul_mixed_dequantize import int8_matmul_mixed_dequantize
 
 
 class _switchback_global(torch.autograd.Function):
+
     @staticmethod
     def forward(ctx, X_3D, W, bias):
         # reshape input to [N * L, D]
@@ -36,7 +29,9 @@ class _switchback_global(torch.autograd.Function):
 
         # matmult, fused dequant and add bias
         # call "mixed" because we are mixing rowwise quantized and global quantized
-        return int8_matmul_mixed_dequantize(X_int8, W_int8.t(), state_X, state_W, bias).view(*X_3D.size()[:-1], -1)
+        return int8_matmul_mixed_dequantize(
+            X_int8, W_int8.t(), state_X, state_W, bias
+        ).view(*X_3D.size()[:-1], -1)
 
     @staticmethod
     def backward(ctx, G_3D):
@@ -53,8 +48,7 @@ class _switchback_global(torch.autograd.Function):
             G_int8, state_G = quantize_rowwise(G)
             W_int8, state_W = quantize_global_transpose(W)
             grad_X = int8_matmul_mixed_dequantize(G_int8, W_int8.t(), state_G, state_W, None).view(
-                *G_3D.size()[:-1],
-                -1,
+                *G_3D.size()[:-1], -1
             )
         if ctx.needs_input_grad[1]:
             # backward pass uses standard weight grad
@@ -64,8 +58,8 @@ class _switchback_global(torch.autograd.Function):
 
         return grad_X, grad_W, grad_bias
 
-
 class _switchback_vectorrize(torch.autograd.Function):
+
     @staticmethod
     def forward(ctx, X_3D, W, bias):
         # reshape input to [N * L, D]
@@ -79,7 +73,9 @@ class _switchback_vectorrize(torch.autograd.Function):
 
         # matmult, fused dequant and add bias
         # call kernel which expects rowwise quantized X and W
-        return int8_matmul_rowwise_dequantize(X_int8, W_int8.t(), state_X, state_W, bias).view(*X_3D.size()[:-1], -1)
+        return int8_matmul_rowwise_dequantize(
+            X_int8, W_int8.t(), state_X, state_W, bias
+        ).view(*X_3D.size()[:-1], -1)
 
     @staticmethod
     def backward(ctx, G_3D):
@@ -95,8 +91,7 @@ class _switchback_vectorrize(torch.autograd.Function):
             G_int8, state_G = quantize_rowwise(G)
             W_int8, state_W = quantize_columnwise_and_transpose(W)
             grad_X = int8_matmul_rowwise_dequantize(G_int8, W_int8.t(), state_G, state_W, None).view(
-                *G_3D.size()[:-1],
-                -1,
+                *G_3D.size()[:-1], -1
             )
         if ctx.needs_input_grad[1]:
             # backward pass uses standard weight grad
@@ -106,8 +101,8 @@ class _switchback_vectorrize(torch.autograd.Function):
 
         return grad_X, grad_W, grad_bias
 
-
 class _switchback_global_mem_efficient(torch.autograd.Function):
+
     @staticmethod
     def forward(ctx, X_3D, W, bias):
         # reshape input to [N * L, D]
@@ -124,7 +119,9 @@ class _switchback_global_mem_efficient(torch.autograd.Function):
 
         # matmult, fused dequant and add bias
         # call "mixed" because we are mixing rowwise quantized and global quantized
-        return int8_matmul_mixed_dequantize(X_int8, W_int8.t(), state_X, state_W, bias).view(*X_3D_sz[:-1], -1)
+        return int8_matmul_mixed_dequantize(
+            X_int8, W_int8.t(), state_X, state_W, bias
+        ).view(*X_3D_sz[:-1], -1)
 
     @staticmethod
     def backward(ctx, G_3D):
@@ -146,34 +143,35 @@ class _switchback_global_mem_efficient(torch.autograd.Function):
             G_int8, state_G = quantize_rowwise(G)
             del G
             W_int8 = W_int8.t().contiguous()
-            grad_X = int8_matmul_mixed_dequantize(G_int8, W_int8.t(), state_G, state_W, None).view(*G_3D_sz[:-1], -1)
+            grad_X = int8_matmul_mixed_dequantize(G_int8, W_int8.t(), state_G, state_W, None).view(
+                *G_3D_sz[:-1], -1
+            )
 
         return grad_X, grad_W, grad_bias
 
-
 class SwitchBackLinear(nn.Linear):
     def __init__(
-        self,
-        in_features: int,
-        out_features: int,
-        bias: bool = True,
-        device=None,
-        dtype=None,
-        vector_wise_quantization: bool = False,
-        mem_efficient: bool = False,
-    ):
+            self,
+            in_features: int,
+            out_features: int,
+            bias: bool = True,
+            device=None,
+            dtype=None,
+            vector_wise_quantization: bool = False,
+            mem_efficient : bool = False,
+        ):
         super().__init__(in_features, out_features, bias, device, dtype)
 
-        if not is_triton_available():
-            raise ImportError("""Could not import triton. Please install triton to use SwitchBackLinear.
-                               Alternatively, you can use bnb.nn.SwitchBackLinearBnb, but it will be slower""")
+        if not is_triton_available:
+            raise ImportError('''Could not import triton. Please install triton to use SwitchBackLinear.
+                               Alternatively, you can use bnb.nn.SwitchBackLinearBnb, but it will be slower''')
 
         # By default, we use the global quantization.
         self.vector_wise_quantization = vector_wise_quantization
         if self.vector_wise_quantization:
             self._fn = _switchback_vectorrize
             if mem_efficient:
-                print("mem efficient is not supported for vector-wise quantization.")
+                print('mem efficient is not supported for vector-wise quantization.')
                 exit(1)
         else:
             if mem_efficient:
@@ -189,7 +187,7 @@ class SwitchBackLinear(nn.Linear):
         #     if hasattr(m, "prepare_for_eval"):
         #         m.prepare_for_eval()
         # model.apply(cond_prepare)
-        print("=> preparing for eval.")
+        print('=> preparing for eval.')
         if self.vector_wise_quantization:
             W_int8, state_W = quantize_rowwise(self.weight)
         else:
@@ -213,21 +211,17 @@ class SwitchBackLinear(nn.Linear):
             X_int8, state_X = quantize_rowwise(X)
 
             if self.vector_wise_quantization:
-                return int8_matmul_rowwise_dequantize(X_int8, self.W_int8.t(), state_X, self.state_W, self.bias).view(
-                    *x.size()[:-1],
-                    -1,
-                )
+                return int8_matmul_rowwise_dequantize(
+                    X_int8, self.W_int8.t(), state_X, self.state_W, self.bias
+                ).view(*x.size()[:-1], -1)
             else:
-                return int8_matmul_mixed_dequantize(X_int8, self.W_int8.t(), state_X, self.state_W, self.bias).view(
-                    *x.size()[:-1],
-                    -1,
-                )
-
+                return int8_matmul_mixed_dequantize(
+                    X_int8, self.W_int8.t(), state_X, self.state_W, self.bias
+                ).view(*x.size()[:-1], -1)
 
 SwitchBackLinearGlobal = partial(SwitchBackLinear, vector_wise_quantization=False)
 SwitchBackLinearGlobalMemEfficient = partial(SwitchBackLinear, vector_wise_quantization=False, mem_efficient=True)
 SwitchBackLinearVectorwise = partial(SwitchBackLinear, vector_wise_quantization=True)
-
 
 # This is just the standard linear function.
 class StandardLinearFunction(torch.autograd.Function):
@@ -258,7 +252,7 @@ class StandardLinearFunction(torch.autograd.Function):
 
         return grad_input, grad_weight, grad_bias
 
-
 class StandardLinear(nn.Linear):
+
     def forward(self, x):
         return StandardLinearFunction.apply(x, self.weight, self.bias)

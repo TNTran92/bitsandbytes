@@ -1,5 +1,8 @@
 [build-system]
-requires = [ "setuptools", "wheel" ]
+requires = [
+    "setuptools>=42",
+    "wheel"
+]
 build-backend = "setuptools.build_meta"
 
 [tool.ruff]
@@ -8,11 +11,9 @@ src = [
     "tests",
     "benchmarking"
 ]
-target-version = "py38"
-line-length = 119
-
-[tool.ruff.lint]
+fix = true
 select = [
+    "A",    # prevent using keywords that clobber python builtins
     "B",    # bugbear: security warnings
     "E",    # pycodestyle
     "F",    # pyflakes
@@ -21,40 +22,16 @@ select = [
     "UP",   # alert you when better syntax is available in your python version
     "RUF",  # the ruff developer's own rules
 ]
+target-version = "py38"
 ignore = [
-    "B007",  # Loop control variable not used within the loop body (TODO: enable)
-    "B028",  # Warning without stacklevel (TODO: enable)
-    "E501",  # Supress line-too-long warnings: trust yapf's judgement on this one.
-    "E701",  # Multiple statements on one line (TODO: enable)
     "E712",  # Allow using if x == False, as it's not always equivalent to if x.
-    "E731",  # Do not use lambda
-    "F841",  # Local assigned but not used (TODO: enable, these are likely bugs)
-    "RUF012",  # Mutable class attribute annotations
+    "E501",  # Supress line-too-long warnings: trust yapf's judgement on this one.
+    "F401", 
 ]
 ignore-init-module-imports = true  # allow to expose in __init__.py via imports
 
-[tool.ruff.lint.extend-per-file-ignores]
-"**/__init__.py" = ["F401"]  # allow unused imports in __init__.py
-"{benchmarking,tests}/**/*.py" = [
-    "B007",
-    "B011",
-    "B023",
-    "E701",
-    "E731",
-    "F841",
-    "UP030",
-]
-
-[tool.ruff.lint.isort]
+[tool.ruff.isort]
 combine-as-imports = true
 detect-same-package = true
 force-sort-within-sections = true
 known-first-party = ["bitsandbytes"]
-
-[[tool.mypy.overrides]]
-module = "triton.*"
-ignore_missing_imports = true
-
-[[tool.mypy.overrides]]
-module = "scipy.stats"
-ignore_missing_imports = true
