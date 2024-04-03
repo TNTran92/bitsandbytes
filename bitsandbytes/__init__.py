@@ -3,7 +3,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from . import research, utils
+from . import cuda_setup, research, utils
 from .autograd._functions import (
     MatmulLtState,
     bmm_cublas,
@@ -12,8 +12,11 @@ from .autograd._functions import (
     matmul_cublas,
     mm_cublas,
 )
+from .cextension import COMPILED_WITH_CUDA
 from .nn import modules
-from .optim import adam
+
+if COMPILED_WITH_CUDA:
+    from .optim import adam
 
 __pdoc__ = {
     "libbitsandbytes": False,
@@ -21,4 +24,6 @@ __pdoc__ = {
     "optim.optimizer.MockArgs": False,
 }
 
-__version__ = "0.44.0.dev"
+__version__ = "0.43.0"
+
+PACKAGE_GITHUB_URL = "https://github.com/TimDettmers/bitsandbytes"
