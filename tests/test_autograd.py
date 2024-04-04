@@ -466,7 +466,6 @@ def test_matmul_fp8( dim1, dim2, dim3, dim4, funcs, dtype, req_grad, transpose):
 
             fw_code = bnb.functional.create_fp8_map(True, 4, 3, 8).to(A.device)
             bw_code = bnb.functional.create_fp8_map(True, 5, 2, 8).to(A.device)
-
             if not transpose[0] and transpose[1]:
                 out_torch = funcs[0](A, B.t())
                 out_bnb = funcs[1](A, B.t(), fw_code, bw_code)
