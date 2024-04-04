@@ -170,9 +170,7 @@ dtype2bytes[torch.bfloat16] = 2
 dtype2bytes[torch.uint8] = 1
 dtype2bytes[torch.int8] = 1
 
-FIRST_CUDA_DEVICE = torch.device('cuda', index=0)
-
-def get_paged(*shape, dtype=torch.float32, device=FIRST_CUDA_DEVICE):
+def get_paged(*shape, dtype=torch.float32, device=torch.device('cuda', index=0)):
     num_bytes = dtype2bytes[dtype]*prod(shape)
     cuda_ptr = lib.cget_managed_ptr(ct.c_size_t(num_bytes))
     c_ptr = ct.cast(cuda_ptr, ct.POINTER(ct.c_int))
@@ -236,17 +234,11 @@ def create_linear_map(signed=True, total_bits=8, add_zero=True):
     if gap == 0:
         return values
     else:
-        l = values.numel()//2  # noqa: E741
+        l = values.numel()//2
         return torch.Tensor(values[:l].tolist() + [0]*gap + values[l:].tolist())
 
 def create_normal_map(offset=0.9677083, use_extra_value=True):
-    try:
-        from scipy.stats import norm
-    except ImportError as ie:
-        raise ImportError(
-            "Scipy is required for `create_normal_map`. "
-            "Install `bitsandbytes` with the `[test]` extra."
-        ) from ie
+    from scipy.stats import norm
 
     if use_extra_value:
         # one more positive value, this is an asymmetric type
@@ -530,7 +522,7 @@ def nvidia_transform(
     return out, new_state
 
 
-def estimate_quantiles(A: Tensor, out: Tensor = None, offset: float = 1 / 512, num_quantiles=256) -> Tensor:
+def estimate_quantiles(A: Tensor, out: Optional[torch.Tensor] = None, offset: float = 1 / 512, num_quantiles=256) -> Tensor:
     '''
     Estimates 256 equidistant quantiles on the input tensor eCDF.
 
@@ -623,7 +615,7 @@ class QuantState:
 
         qs_dict: based on state_dict, with only relevant keys, striped of prefixes.
 
-        item with key `quant_state.bitsandbytes__[nf4/fp4]` may contain minor and non-tensor quant state items.        
+        item with key `quant_state.bitsandbytes__[nf4/fp4]` may contain minor and non-tensor quant state items.
         """
 
         # unpacking tensor with non-tensor components
@@ -928,17 +920,26 @@ def get_4bit_type(typename, device=None, blocksize=64):
     return data.to(device)
 
 
-def quantize_fp4(A: Tensor, absmax: Tensor = None, out: Tensor = None, blocksize=None, compress_statistics=False, quant_storage=torch.uint8):
+def quantize_fp4(A: Tensor, absmax: Optional[torch.Tensor] = None, out: Optional[torch.Tensor] = None, blocksize=None, compress_statistics=False, quant_storage=torch.uint8):
     if blocksize is None:
         blocksize = 64 if not HIP_ENVIRONMENT else 128
     return quantize_4bit(A, absmax, out, blocksize, compress_statistics, 'fp4', quant_storage)
 
-def quantize_nf4(A: Tensor, absmax: Tensor = None, out: Tensor = None, blocksize=None, compress_statistics=False, quant_storage=torch.uint8):
+def quantize_nf4(A: Tensor, absmax: Optional[torch.Tensor] = None, out: Optional[torch.Tensor] = None, blocksize=None, compress_statistics=False, quant_storage=torch.uint8):
     if blocksize is None:
         blocksize = 64 if not HIP_ENVIRONMENT else 128
     return quantize_4bit(A, absmax, out, blocksize, compress_statistics, 'nf4', quant_storage)
 
-def quantize_4bit(A: Tensor, absmax: Tensor = None, out: Tensor = None, blocksize=None, compress_statistics=False, quant_type='fp4', quant_storage=torch.uint8) -> Tensor:
+
+def quantize_4bit(
+    A: Tensor,
+    absmax: Optional[torch.Tensor] = None,
+    out: Optional[torch.Tensor] = None,
+    blocksize=None,
+    compress_statistics=False,
+    quant_type='fp4',
+    quant_storage=torch.uint8,
+) -> Tuple[Tensor, QuantState]:
     """
     Quantize tensor A in blocks of 4-bit values.
 
@@ -964,6 +965,8 @@ def quantize_4bit(A: Tensor, absmax: Tensor = None, out: Tensor = None, blocksiz
     tuple(torch.Tensor, torch.Size, torch.dtype, int):
         The quantization state to undo the quantization.
     """
+    if blocksize is None:
+        blocksize = 64 if not HIP_ENVIRONMENT else 128
     if A.device.type != 'cuda':
         raise NotImplementedError(f'Device type not supported for FP4 quantization: {A.device.type}')
     if quant_type not in ['fp4', 'nf4']:
@@ -1022,19 +1025,19 @@ def quantize_4bit(A: Tensor, absmax: Tensor = None, out: Tensor = None, blocksiz
 
     return out, state
 
-def dequantize_fp4(A: Tensor, quant_state: QuantState = None, absmax: Tensor = None, out: Tensor = None, blocksize: int = None) -> Tensor:
+def dequantize_fp4(A: Tensor, quant_state: Optional[QuantState] = None, absmax: Optional[torch.Tensor] = None, out: Optional[torch.Tensor] = None, blocksize: int = None) -> Tensor:
     if blocksize is None:
         blocksize = 64 if not HIP_ENVIRONMENT else 128
 
     return dequantize_4bit(A, quant_state, absmax, out, blocksize, 'fp4')
 
-def dequantize_nf4(A: Tensor, quant_state: QuantState = None, absmax: Tensor = None, out: Tensor = None, blocksize: int = None) -> Tensor:
+def dequantize_nf4(A: Tensor, quant_state: Optional[QuantState] = None, absmax: Optional[torch.Tensor] = None, out: Optional[torch.Tensor] = None, blocksize: int = None) -> Tensor:
     if blocksize is None:
         blocksize = 64 if not HIP_ENVIRONMENT else 128
     
     return dequantize_4bit(A, quant_state, absmax, out, blocksize, 'nf4')
 
-def dequantize_4bit(A: Tensor, quant_state: QuantState = None, absmax: Tensor = None, out: Tensor = None, blocksize: int = 128, quant_type='fp4') -> Tensor:
+def dequantize_4bit(A: Tensor, quant_state: Optional[QuantState] = None, absmax: Optional[torch.Tensor] = None, out: Optional[torch.Tensor] = None, blocksize: int = None, quant_type='fp4') -> Tensor:
     """
     Dequantizes FP4 blockwise quantized values.
 
@@ -1118,7 +1121,11 @@ def dequantize_4bit(A: Tensor, quant_state: QuantState = None, absmax: Tensor = 
     else: return out
 
 
-def quantize(A: Tensor, code: Tensor = None, out: Tensor = None) -> Tensor:
+def quantize(
+    A: Tensor,
+    code: Optional[torch.Tensor] = None,
+    out: Optional[torch.Tensor] = None,
+) -> Tuple[Tensor, Tuple[Tensor, Tensor]]:
     if code is None:
         if "dynamic" not in name2qmap:
             name2qmap["dynamic"] = create_dynamic_map().to(A.device)
@@ -1134,10 +1141,10 @@ def quantize(A: Tensor, code: Tensor = None, out: Tensor = None) -> Tensor:
 
 def dequantize(
     A: Tensor,
-    state: Tuple[Tensor, Tensor] = None,
-    absmax: Tensor = None,
-    code: Tensor = None,
-    out: Tensor = None,
+    state: Optional[Tuple[Tensor, Tensor]] = None,
+    absmax: Optional[torch.Tensor] = None,
+    code: Optional[torch.Tensor] = None,
+    out: Optional[torch.Tensor] = None,
 ) -> Tensor:
     assert state is not None or absmax is not None
     if code is None and state is None:
@@ -2279,6 +2286,9 @@ def double_quant(
 
 
 def transform(A, to_order, from_order='row', out=None, transpose=False, state=None, ld=None):
+    if HIP_ENVIRONMENT:
+        return nvidia_transform(A,to_order,from_order,out,transpose,state,ld)
+
     prev_device = pre_call(A.device)
     if state is None: state = (A.shape, from_order)
     else: from_order = state[1]
@@ -2577,10 +2587,7 @@ def dequant_min_max(xq, A, B, SA, SB, dtype=torch.half):
 def extract_outliers(A, SA, idx):
     shapeA = SA[0]
     formatA = SA[1]
-    if not HIP_ENVIRONMENT:
-        assert formatA in ["col_turing", "col_ampere"]
-    else:
-        assert formatA in ["col"]
+    assert formatA in ["col_turing", "col_ampere"]
     assert A.device.type == "cuda"
 
     out = torch.zeros(
