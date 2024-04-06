@@ -1,8 +1,0 @@
-- sections: 
-  - local: index
-    title: Bits & Bytes
-  - local: quickstart
-    title: Quickstart
-  - local: installation
-    title: Installation
-  title: Get started
